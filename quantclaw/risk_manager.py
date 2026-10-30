@@ -142,7 +142,10 @@ class RiskManager:
             return False, f"Trade rejected: {decision.rejection_reason}"
 
         if self.account_tracker:
-            daily_loss_pct = self.account_tracker.get_daily_loss_pct()
+            try:
+                daily_loss_pct = float(self.account_tracker.get_daily_loss_pct() or 0.0)
+            except (TypeError, ValueError):
+                daily_loss_pct = 0.0
             max_daily_pct = float(getattr(self.config, "daily_max_loss_pct", 3.0))
             if daily_loss_pct >= max_daily_pct:
                 self.trigger_circuit_breaker(
@@ -439,7 +442,10 @@ class RiskManager:
 
         # Check daily loss — log warning but DO NOT return (keep managing open positions)
         if self.account_tracker:
-            daily_loss_pct = self.account_tracker.get_daily_loss_pct()
+            try:
+                daily_loss_pct = float(self.account_tracker.get_daily_loss_pct() or 0.0)
+            except (TypeError, ValueError):
+                daily_loss_pct = 0.0
             max_daily_pct = float(getattr(self.config, "daily_max_loss_pct", 3.0))
             if daily_loss_pct >= max_daily_pct:
                 # Block new entries but DO NOT stop managing existing positions
@@ -676,24 +682,63 @@ class RiskManager:
 
             # ── Helper: Compute BE offset respecting broker stops_level ──────────
             async def _get_be_offset(s: str) -> tuple:
-                """Returns (point, digits, be_offset) respecting broker stops_level."""
+                """Returns (point, digits, be_offset) respecting broker stops_level safely."""
                 si = await asyncio.to_thread(self.mt5.get_symbol_info, s)
-                pt = si.point if si else 0.00001
-                dg = si.digits if si else 5
-                sprd = si.spread if si else 3
-                # FIX: Include broker stops_level in offset to prevent retcode 10016 on Gold/Indices
-                stops_lvl = getattr(si, "trade_stops_level", 0) if si else 0
-                offset = max(pt * 10, pt * sprd, pt * stops_lvl)
+                try:
+                    pt = float(getattr(si, "point", 0.00001)) if si else 0.00001
+                except (ValueError, TypeError):
+                    pt = 0.00001
+                try:
+                    dg = int(getattr(si, "digits", 5)) if si else 5
+                except (ValueError, TypeError):
+                    dg = 5
+                try:
+                    sprd = float(getattr(si, "spread", 3.0)) if si else 3.0
+                except (ValueError, TypeError):
+                    sprd = 3.0
+                try:
+                    stops_lvl = float(getattr(si, "trade_stops_level", 0.0)) if si else 0.0
+                except (ValueError, TypeError):
+                    stops_lvl = 0.0
+
+                offset = max(pt * 10.0, pt * sprd, pt * stops_lvl)
                 return pt, dg, offset
 
-            # A0. Soft Risk Reduction (At +0.75R, moves SL to -0.25R — slashes 75% risk while preserving 0.5R wave breathing space)
-            enable_soft_risk = getattr(self.config, "enable_soft_risk_reduction", True)
-            soft_r_trigger = float(getattr(self.config, "soft_risk_reduction_r", 0.75))
-            soft_r_target = float(getattr(self.config, "soft_risk_target_r", -0.25))
-            if enable_soft_risk and not managed.get("soft_risk_reduced") and not managed.get("breakeven_done"):
-                if r_multiple >= soft_r_trigger and sl_dist > 0:
-                    pt, dg, _ = await _get_be_offset(sym)
-                    soft_sl = round(entry_price - (sl_dist * abs(soft_r_target)), dg) if is_buy                               else round(entry_price + (sl_dist * abs(soft_r_target)), dg)
+            # ── 5-ZONE STEPPED TRAILING & VOLUME-ADAPTIVE LIFECYCLE ───────────────
+            enable_stepped = getattr(self.config, "enable_stepped_trailing", True)
+            
+            # Fetch Volume Regime for symbol
+            vol_regime = "NORMAL_VOLUME"
+            trail_atr_mult = 1.0
+            if self.market_engine and hasattr(self.market_engine, "get_volume_regime"):
+                try:
+                    v_info = self.market_engine.get_volume_regime(sym, "M15")
+                    vol_regime = v_info.get("regime", "NORMAL_VOLUME")
+                    trail_atr_mult = v_info.get("trail_atr_mult", 1.0)
+                except Exception:
+                    pass
+
+            # Zone Triggers (Adaptive to Volume Regime)
+            if vol_regime == "LOW_VOLUME":
+                z1_trigger = 0.50   # Soft cushion earlier in quiet markets
+                z2_trigger = 0.90   # BE earlier before range reversal
+                z3_trigger = 1.40   # Bank partial profit earlier
+                z4_trigger = 2.00
+                z5_trigger = 2.40
+            else:
+                z1_trigger = float(getattr(self.config, "stepped_trail_zone1_r", 0.65))
+                z2_trigger = float(getattr(self.config, "stepped_trail_zone2_r", 1.05))
+                z3_trigger = float(getattr(self.config, "stepped_trail_zone3_r", 1.80))
+                z4_trigger = float(getattr(self.config, "stepped_trail_zone4_r", 2.40))
+                z5_trigger = float(getattr(self.config, "stepped_trail_zone5_r", 2.80))
+
+            pt, dg, be_offset = await _get_be_offset(sym)
+
+            # ZONE 1: Soft Cushion (Slashes 75% risk down to -0.25R SL, leaving 0.5R wave breathing space)
+            if enable_stepped and not managed.get("zone1_done") and not managed.get("breakeven_done"):
+                if r_multiple >= z1_trigger and sl_dist > 0:
+                    soft_target_r = float(getattr(self.config, "soft_risk_target_r", -0.25))
+                    soft_sl = round(entry_price - (sl_dist * abs(soft_target_r)), dg) if is_buy                               else round(entry_price + (sl_dist * abs(soft_target_r)), dg)
                     current_sl_val = managed.get("current_sl", 0.0)
                     should_tighten = (is_buy and soft_sl > current_sl_val + pt) or                                      (not is_buy and soft_sl < current_sl_val - pt and current_sl_val > 0)
                     if should_tighten:
@@ -704,34 +749,31 @@ class RiskManager:
                                     asyncio.to_thread(self.mt5.modify_position, ticket, soft_sl, pos.get("tp", 0.0)),
                                     timeout=10.0
                                 )
-                                if succ:
-                                    break
+                                if succ: break
                                 await asyncio.sleep(0.3)
-                            except Exception:
-                                pass
+                            except Exception: pass
                         if succ:
+                            managed["zone1_done"] = True
                             managed["soft_risk_reduced"] = True
                             managed["current_sl"] = soft_sl
                             managed["last_seen_sl"] = soft_sl
                             managed["last_seen_tp"] = pos.get("tp", 0.0)
-                            logger.info(f"🛡️ [SOFT RISK REDUCTION] Risk slashed 75% on #{ticket} {sym} @ SL={soft_sl} (R={r_multiple:.2f}, target={soft_r_target}R)")
+                            logger.info(f"🛡️ [ZONE 1: SOFT CUSHION] Risk slashed 75% on #{ticket} {sym} @ SL={soft_sl} (R={r_multiple:.2f})")
                             if self.journal:
                                 try:
                                     await asyncio.to_thread(
                                         self.journal.log_trade_event,
-                                        ticket, sym, 'SOFT_RISK_REDUCED', soft_sl, r_multiple,
-                                        {'sl': soft_sl, 'entry': entry_price, 'r_trigger': soft_r_trigger}
+                                        ticket, sym, 'ZONE1_SOFT_CUSHION', soft_sl, r_multiple,
+                                        {'sl': soft_sl, 'entry': entry_price, 'r_trigger': z1_trigger}
                                     )
-                                except Exception:
-                                    pass
+                                except Exception: pass
 
-            # A0_old. Early Breakeven Protection (Only active if user explicitly toggles it ON)
+            # Legacy Early Breakeven fallback (only if explicitly enabled by user)
             enable_early_be = getattr(self.config, "enable_early_breakeven", False)
             early_be_r = float(getattr(self.config, "early_breakeven_r_ratio", 0.45))
             if enable_early_be and not managed.get("early_be_done") and not managed.get("breakeven_done"):
                 if r_multiple >= early_be_r:
-                    pt, dg, be_offset = await _get_be_offset(sym)
-                    be_price = round(entry_price + be_offset, dg) if is_buy                                else round(entry_price - be_offset, dg)
+                    be_price = round(entry_price + be_offset, dg) if is_buy else round(entry_price - be_offset, dg)
                     succ = False
                     for _ in range(2):
                         try:
@@ -739,11 +781,9 @@ class RiskManager:
                                 asyncio.to_thread(self.mt5.modify_position, ticket, be_price, pos.get("tp", 0.0)),
                                 timeout=10.0
                             )
-                            if succ:
-                                break
+                            if succ: break
                             await asyncio.sleep(0.3)
-                        except Exception:
-                            pass
+                        except Exception: pass
                     if succ:
                         managed["early_be_done"] = True
                         managed["breakeven_done"] = True
@@ -751,59 +791,47 @@ class RiskManager:
                         managed["last_seen_sl"] = be_price
                         managed["last_seen_tp"] = pos.get("tp", 0.0)
                         logger.info(f"🛡️ [EARLY BREAKEVEN] Capital Secured for #{ticket} {sym} @ {be_price} (R={r_multiple:.2f})")
-                        if self.journal:
-                            try:
-                                await asyncio.to_thread(
-                                    self.journal.log_trade_event,
-                                    ticket, sym, 'EARLY_BE_TRIGGERED', be_price, r_multiple,
-                                    {'reason': 'early_r_ratio_hit', 'entry': entry_price, 'r_target': early_be_r}
-                                )
-                            except Exception:
-                                pass
-            # A. Dynamic Breakeven (at configured R gain)
-            if getattr(self.config, "enable_breakeven_trigger", True) and not managed["breakeven_done"]:
-                if r_multiple >= float(getattr(self.config, "breakeven_r_ratio", 1.0)):
-                    pt, dg, be_offset = await _get_be_offset(sym)
-                    be_price = round(entry_price + be_offset, dg) if is_buy \
-                               else round(entry_price - be_offset, dg)
-                    succ = False
-                    for _ in range(2):
-                        try:
-                            succ, _ = await asyncio.wait_for(
-                                asyncio.to_thread(self.mt5.modify_position, ticket, be_price, pos.get("tp", 0.0)),
-                                timeout=10.0
-                            )
-                            if succ:
-                                break
-                            await asyncio.sleep(0.3)  # Brief pause before retry
-                        except Exception:
-                            pass
-                    if succ:
-                        managed["breakeven_done"] = True
-                        managed["current_sl"] = be_price
-                        managed["last_seen_sl"] = be_price
-                        managed["last_seen_tp"] = pos.get("tp", 0.0)
-                        logger.info(f"🛡️ Breakeven Triggered for #{ticket} {sym} @ {be_price}")
-                        if self.journal:
-                            try:
-                                await asyncio.to_thread(
-                                    self.journal.log_trade_event,
-                                    ticket, sym, 'BE_TRIGGERED', be_price, r_multiple,
-                                    {'reason': 'r_ratio_hit', 'entry': entry_price}
-                                )
-                            except Exception:
-                                pass
 
-            # A2. News Shield Defensive Breakeven (Lock in gains ahead of news volatility)
+            # ZONE 2: Breakeven Plus (Entry + Spread + 0.15R offset -> Guaranteed Green Risk-Free Trade)
+            if (enable_stepped or getattr(self.config, "enable_breakeven_trigger", True)) and not managed.get("breakeven_done"):
+                if r_multiple >= z2_trigger:
+                    be_plus_offset = max(be_offset, sl_dist * 0.15)
+                    be_price = round(entry_price + be_plus_offset, dg) if is_buy                                else round(entry_price - be_plus_offset, dg)
+                    current_sl_val = managed.get("current_sl", 0.0)
+                    should_tighten = (is_buy and be_price > current_sl_val + pt) or                                      (not is_buy and be_price < current_sl_val - pt and current_sl_val > 0) or                                      (not is_buy and current_sl_val == 0.0)
+                    if should_tighten:
+                        succ = False
+                        for _ in range(2):
+                            try:
+                                succ, _ = await asyncio.wait_for(
+                                    asyncio.to_thread(self.mt5.modify_position, ticket, be_price, pos.get("tp", 0.0)),
+                                    timeout=10.0
+                                )
+                                if succ: break
+                                await asyncio.sleep(0.3)
+                            except Exception: pass
+                        if succ:
+                            managed["zone2_done"] = True
+                            managed["breakeven_done"] = True
+                            managed["current_sl"] = be_price
+                            managed["last_seen_sl"] = be_price
+                            managed["last_seen_tp"] = pos.get("tp", 0.0)
+                            logger.info(f"🔒 [ZONE 2: BREAKEVEN PLUS] Guaranteed green trade on #{ticket} {sym} @ {be_price} (R={r_multiple:.2f})")
+                            if self.journal:
+                                try:
+                                    await asyncio.to_thread(
+                                        self.journal.log_trade_event,
+                                        ticket, sym, 'ZONE2_BREAKEVEN_PLUS', be_price, r_multiple,
+                                        {'sl': be_price, 'entry': entry_price}
+                                    )
+                                except Exception: pass
+
+            # News Shield Defensive Breakeven
             if getattr(self.config, "enable_news_filter", True) and self.news_monitor and hasattr(self.news_monitor, "is_news_blocked") and not managed["breakeven_done"]:
                 is_blocked, news_reason = self.news_monitor.is_news_blocked(sym)
                 if is_blocked and r_multiple >= 0.2:
-                    pt, dg, be_offset = await _get_be_offset(sym)
-                    # FIX: Only apply news defensive BE if current profit EXCEEDS be_offset
-                    # Prevents placing SL above live market price (which causes immediate stop-out)
                     if profit_distance > be_offset:
-                        be_price = round(entry_price + be_offset, dg) if is_buy \
-                                   else round(entry_price - be_offset, dg)
+                        be_price = round(entry_price + be_offset, dg) if is_buy else round(entry_price - be_offset, dg)
                         try:
                             succ, _ = await asyncio.wait_for(
                                 asyncio.to_thread(self.mt5.modify_position, ticket, be_price, pos.get("tp", 0.0)),
@@ -815,68 +843,89 @@ class RiskManager:
                                 managed["last_seen_sl"] = be_price
                                 managed["last_seen_tp"] = pos.get("tp", 0.0)
                                 logger.info(f"📰 [NEWS DEFENSE] Secured Breakeven for #{ticket} {sym} @ {be_price}")
-                        except Exception:
-                            pass
+                        except Exception: pass
 
-            # B. 3-Stage Partial Take Profit Ladder
-            enable_partial_tp = getattr(self.config, 'enable_partial_take_profit', True) or getattr(self.config, 'enable_partial_tp_ladder', True)
-            initial_vol = float(managed.get("volume", 0.01))
-            if enable_partial_tp and initial_vol > 0:
-                partial_stages = [
-                    (float(getattr(self.config, 'partial_tp_stage1_r', 1.5)), float(getattr(self.config, 'partial_tp_stage1_pct', 30)) / 100.0, "partial_stage1"),
-                    (float(getattr(self.config, 'partial_tp_stage2_r', 2.5)), float(getattr(self.config, 'partial_tp_stage2_pct', 30)) / 100.0, "partial_stage2"),
-                ]
-                for (r_target, close_frac, stage_key) in partial_stages:
-                    if r_multiple >= r_target and not managed.get(stage_key):
-                        close_vol_raw = initial_vol * close_frac
-                        close_vol = max(0.01, round(close_vol_raw, 2))
-                        current_vol = float(pos.get("volume", initial_vol))
-                        if close_vol >= current_vol:
-                            close_vol = max(0.01, round(current_vol * 0.5, 2))
-                        if close_vol > 0 and current_vol > close_vol:
-                            succ_p = False
-                            for _r in range(2):
-                                try:
-                                    close_fn = getattr(self.mt5, "partial_close", self.mt5.close_position)
-                                    succ_p, _ = await asyncio.wait_for(
-                                        asyncio.to_thread(close_fn, ticket, close_vol),
-                                        timeout=10.0
-                                    )
-                                    if succ_p:
-                                        break
-                                    await asyncio.sleep(0.3)
-                                except Exception:
-                                    pass
+            # ZONE 3: Profit Bank Tier 1 (Close 40% Volume + Lock SL at +0.80R Guaranteed Profit)
+            if (enable_stepped or getattr(self.config, "enable_partial_take_profit", True)) and not managed.get("zone3_done") and not managed.get("partial_tp_done"):
+                if r_multiple >= z3_trigger:
+                    initial_vol = float(managed.get("volume", 0.01))
+                    current_vol = float(pos.get("volume", initial_vol))
+                    close_vol = max(0.01, round(initial_vol * 0.40, 2))
+                    if current_vol > close_vol:
+                        try:
+                            close_fn = getattr(self.mt5, "partial_close", self.mt5.close_position)
+                            succ_p, _ = await asyncio.wait_for(asyncio.to_thread(close_fn, ticket, close_vol), timeout=10.0)
                             if succ_p:
-                                managed[stage_key] = True
-                                stage_num = stage_key[-1]
-                                logger.info(f"💰 [PARTIAL TP {stage_num}] Closed {close_vol} lots of #{ticket} {sym} at R={r_multiple:.2f} ({r_target}R target)")
+                                logger.info(f"💰 [ZONE 3: BANK CASH] Closed {close_vol} lots (40%) on #{ticket} {sym} at R={r_multiple:.2f}")
                                 if self.journal:
                                     try:
                                         await asyncio.to_thread(
                                             self.journal.log_trade_event,
-                                            ticket, sym, f'PARTIAL_TP_{stage_num}', cur_price, r_multiple,
-                                            {'closed_vol': close_vol, 'remaining_vol': current_vol - close_vol, 'r_target': r_target}
+                                            ticket, sym, 'ZONE3_PARTIAL_BANK', cur_price, r_multiple,
+                                            {'closed_vol': close_vol, 'remaining_vol': current_vol - close_vol}
                                         )
-                                    except Exception:
-                                        pass
+                                    except Exception: pass
+                        except Exception: pass
+                    
+                    # Lock SL to +0.80R
+                    lock_sl = round(entry_price + (sl_dist * 0.80), dg) if is_buy                               else round(entry_price - (sl_dist * 0.80), dg)
+                    current_sl_val = managed.get("current_sl", 0.0)
+                    should_tighten = (is_buy and lock_sl > current_sl_val + pt) or                                      (not is_buy and lock_sl < current_sl_val - pt and current_sl_val > 0)
+                    if should_tighten:
+                        try:
+                            succ, _ = await asyncio.wait_for(
+                                asyncio.to_thread(self.mt5.modify_position, ticket, lock_sl, pos.get("tp", 0.0)),
+                                timeout=10.0
+                            )
+                            if succ:
+                                managed["current_sl"] = lock_sl
+                                managed["last_seen_sl"] = lock_sl
+                                logger.info(f"💎 [ZONE 3: PROFIT LOCK] Secured +0.80R profit lock on #{ticket} {sym} @ {lock_sl}")
+                        except Exception: pass
+                    managed["zone3_done"] = True
+                    managed["partial_tp_done"] = True
 
-            # C. Trailing Stop Loss (ATR-based, now DECOUPLED from breakeven_done)
-            # FIX: trailing stop no longer requires breakeven to have succeeded.
-            # If BE failed due to broker rejection but trade is at +3R, trailing must still activate.
-            trail_mult = float(getattr(self.config, "trailing_stop_atr_mult", 1.5))
-            trail_activation_r = float(getattr(self.config, "breakeven_r_ratio", 1.0))
-            if getattr(self.config, "enable_trailing_stop", True) and r_multiple >= trail_activation_r:
-                atr_val = 0.0
-                if self.market_engine:
+            # ZONE 4: Profit Bank Tier 2 (Lock SL at +1.40R Guaranteed Profit)
+            if enable_stepped and not managed.get("zone4_done"):
+                if r_multiple >= z4_trigger:
+                    lock_sl_2 = round(entry_price + (sl_dist * 1.40), dg) if is_buy                                 else round(entry_price - (sl_dist * 1.40), dg)
+                    current_sl_val = managed.get("current_sl", 0.0)
+                    should_tighten = (is_buy and lock_sl_2 > current_sl_val + pt) or                                      (not is_buy and lock_sl_2 < current_sl_val - pt and current_sl_val > 0)
+                    if should_tighten:
+                        try:
+                            succ, _ = await asyncio.wait_for(
+                                asyncio.to_thread(self.mt5.modify_position, ticket, lock_sl_2, pos.get("tp", 0.0)),
+                                timeout=10.0
+                            )
+                            if succ:
+                                managed["zone4_done"] = True
+                                managed["current_sl"] = lock_sl_2
+                                managed["last_seen_sl"] = lock_sl_2
+                                logger.info(f"🚀 [ZONE 4: MEGA PROFIT LOCK] Secured +1.40R profit lock on #{ticket} {sym} @ {lock_sl_2}")
+                        except Exception: pass
+
+            # CLIMAX VOLUME AGGRESSIVE LOCK (If volume spikes 3x+ while in deep profit, lock SL immediately)
+            if vol_regime == "CLIMAX_VOLUME" and r_multiple >= 1.50 and not managed.get("climax_locked"):
+                climax_sl = round(entry_price + (sl_dist * 1.20), dg) if is_buy else round(entry_price - (sl_dist * 1.20), dg)
+                current_sl_val = managed.get("current_sl", 0.0)
+                should_tighten = (is_buy and climax_sl > current_sl_val + pt) or                                  (not is_buy and climax_sl < current_sl_val - pt and current_sl_val > 0)
+                if should_tighten:
                     try:
-                        mkt = self.market_engine.get_market_analysis(sym, 'M15')
-                        atr_val = float(mkt.get('atr', 0))
-                    except Exception:
-                        pass
-                if atr_val <= 0:
-                    atr_val = sl_dist * 0.8
+                        succ, _ = await asyncio.wait_for(
+                            asyncio.to_thread(self.mt5.modify_position, ticket, climax_sl, pos.get("tp", 0.0)),
+                            timeout=10.0
+                        )
+                        if succ:
+                            managed["climax_locked"] = True
+                            managed["current_sl"] = climax_sl
+                            managed["last_seen_sl"] = climax_sl
+                            logger.warning(f"🛑 [CLIMAX VOLUME DEFENSE] Locked SL @ +1.20R ({climax_sl}) on #{ticket} {sym} ahead of blow-off reversal")
+                    except Exception: pass
 
+            # ZONE 5 & RUNNER TRAILING: High-Water Dynamic ATR Trail (> 2.80R for runners)
+            trail_mult = float(getattr(self.config, "trailing_stop_atr_mult", 1.5)) * trail_atr_mult
+            trail_activation = z5_trigger if enable_stepped else float(getattr(self.config, "trail_activation_r", 1.5))
+            if getattr(self.config, "enable_trailing_stop", True) and r_multiple >= trail_activation:
                 # Acceleration: if price moved fast in last 5 M1 candles, tighten trail
                 if self.market_engine:
                     try:
@@ -884,20 +933,15 @@ class RiskManager:
                         if m1c and len(m1c) >= 5:
                             m1_move = abs(float(m1c[-1].get("close", 0)) - float(m1c[-5].get("close", 0)))
                             if atr_val > 0 and m1_move > atr_val * 0.6:
-                                trail_mult = max(0.7, trail_mult * 0.65)  # Tighten trail on fast move
-                    except Exception:
-                        pass
+                                trail_mult = max(0.7, trail_mult * 0.65)
+                    except Exception: pass
 
                 trail_offset = atr_val * trail_mult
                 trail_sl = cur_price - trail_offset if is_buy else cur_price + trail_offset
-
-                # FIX: SELL trailing stop when current_sl == 0.0 (adopted position with no SL)
-                # Bypass the comparison guard so trailing can initialize SL from scratch
                 current_sl_val = managed["current_sl"]
                 if is_buy:
                     should_update = trail_sl > current_sl_val + (trail_offset * 0.1)
                 else:
-                    # If current_sl is 0.0 (no SL set on adopted SELL), any positive trail_sl is an improvement
                     if current_sl_val == 0.0:
                         should_update = trail_sl > 0
                     else:
@@ -911,16 +955,14 @@ class RiskManager:
                                 asyncio.to_thread(self.mt5.modify_position, ticket, trail_sl, pos.get("tp", 0.0)),
                                 timeout=10.0
                             )
-                            if succ:
-                                break
+                            if succ: break
                             await asyncio.sleep(0.3)
-                        except Exception:
-                            pass
+                        except Exception: pass
                     if succ:
                         managed["current_sl"] = trail_sl
                         managed["last_seen_sl"] = trail_sl
                         managed["last_seen_tp"] = pos.get("tp", 0.0)
-                        logger.info(f"📈 Trailing SL → {trail_sl:.5f} for #{ticket} {sym} (R={r_multiple:.2f}, ATR-trail={trail_offset:.5f})")
+                        logger.info(f"🏃 [ZONE 5: RUNNER TRAIL] Trailing SL → {trail_sl:.5f} for #{ticket} {sym} (R={r_multiple:.2f}, ATR={atr_val:.5f}, mult={trail_mult:.2f})")
                         if self.journal:
                             try:
                                 await asyncio.to_thread(
@@ -928,8 +970,7 @@ class RiskManager:
                                     ticket, sym, 'TRAILING_UPDATE', trail_sl, r_multiple,
                                     {'from_sl': current_sl_val, 'to_sl': trail_sl, 'atr': atr_val}
                                 )
-                            except Exception:
-                                pass
+                            except Exception: pass
 
             # D. Active Structural Invalidation Guardian (Early Loss Mitigation)
             # Only trigger when deep in loss (r_multiple <= -0.75) AND confirmed structure shift

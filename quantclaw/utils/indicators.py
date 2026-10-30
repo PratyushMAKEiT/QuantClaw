@@ -389,3 +389,58 @@ def calculate_adx(candles: List[Dict[str, Any]], period: int = 14) -> Dict[str, 
         "plus_di": round(final_plus_di, 2),
         "minus_di": round(final_minus_di, 2),
     }
+
+
+def classify_volume_regime(
+    volume_ratio: float,
+    adx_val: float = 20.0,
+    atr_ratio: float = 1.0,
+) -> Dict[str, Any]:
+    """
+    Classify the market into 4 volume & liquidity regimes:
+    1. LOW_VOLUME: Slow, drifting market. False breakouts are common.
+       Action: Compress TP target (1.5R - 1.8R), prioritize SMC liquidity sweeps,
+       tighten soft SL earlier to secure small gains before range reverses.
+    2. NORMAL_VOLUME: Healthy institutional liquidity and balanced momentum.
+       Action: Standard 5-Zone stepped trailing, standard 2.0R - 2.8R targets.
+    3. HIGH_VOLUME: Strong institutional expansion / session open / trend surge.
+       Action: Expand target RR to 3.2R - 3.8R, provide 1.25x ATR trail buffer so wicks don't knock runners out.
+    4. CLIMAX_VOLUME: Exhaustion spike / blow-off volume.
+       Action: Block late breakout entries; if open trade is in profit (>1.5R), immediately lock trailing SL.
+    """
+    vr = float(volume_ratio) if volume_ratio is not None else 1.0
+    adx = float(adx_val) if adx_val is not None else 20.0
+
+    if vr > 3.0:
+        regime = "CLIMAX_VOLUME"
+        target_rr_mult = 1.0
+        trail_atr_mult = 0.75
+        allow_breakout = False
+        description = "Exhaustion Volume Spike: High reversal risk. Late breakouts blocked, profits tightened."
+    elif vr >= 1.8 or (vr >= 1.4 and adx >= 28.0):
+        regime = "HIGH_VOLUME"
+        target_rr_mult = 1.25
+        trail_atr_mult = 1.25
+        allow_breakout = True
+        description = "Institutional Volume Expansion: Strong directional momentum. Expanding targets for maximum profit."
+    elif vr < 0.70 or (vr < 0.85 and adx < 14.0):
+        regime = "LOW_VOLUME"
+        target_rr_mult = 0.70
+        trail_atr_mult = 0.80
+        allow_breakout = False
+        description = "Low Volume Consolidation: Prone to fakeouts. Targeting range sweeps and securing quick profits."
+    else:
+        regime = "NORMAL_VOLUME"
+        target_rr_mult = 1.0
+        trail_atr_mult = 1.0
+        allow_breakout = True
+        description = "Healthy Volume Flow: Standard balanced market conditions. Operating standard 5-zone stepped trailing."
+
+    return {
+        "regime": regime,
+        "volume_ratio": round(vr, 2),
+        "target_rr_mult": target_rr_mult,
+        "trail_atr_mult": trail_atr_mult,
+        "allow_breakout": allow_breakout,
+        "description": description,
+    }

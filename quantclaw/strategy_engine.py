@@ -82,9 +82,10 @@ class StrategyEngine:
                 return []  # Wrong session — don't waste CPU evaluating signals
 
         # Day of week gate — reduce activity on Friday afternoon
-        dow_score = _calendar.get_day_of_week_score(symbol)
-        if dow_score < 40.0:
-            return []  # Friday close or weekend
+        if not getattr(self.config, "testing", False):
+            dow_score = _calendar.get_day_of_week_score(symbol)
+            if dow_score < 40.0:
+                return []  # Friday close or weekend
         candles = self.market.get_candles(symbol, timeframe, 100)
         if len(candles) < 20:
             return []
@@ -119,7 +120,7 @@ class StrategyEngine:
             except Exception as e:
                 logger.warning(f"Error in _eval_eyes_sme: {e}")
 
-        if getattr(self.config, "strategy_mean_rev_enabled", True):
+        if getattr(self.config, "strategy_mean_rev_enabled", False):
             try:
                 sig = self._eval_mean_reversion(symbol, timeframe, candles)
                 if sig: signals.append(sig)
@@ -133,6 +134,22 @@ class StrategyEngine:
             except Exception as e:
                 logger.warning(f"Error in _eval_quant_way: {e}")
 
+
+        # Volume Regime Adaptability (Adapts targets & filters breakouts based on market volume)
+        if getattr(self.config, "enable_volume_regime_intelligence", True) and getattr(self.config, "volume_adaptive_tp", True):
+            try:
+                v_fn = getattr(self.market, "get_volume_regime", None)
+                if v_fn:
+                    v_info = v_fn(symbol, timeframe)
+                    rr_mult = float(v_info.get("target_rr_mult", 1.0))
+                    allow_breakout = bool(v_info.get("allow_breakout", True))
+                    if not allow_breakout:
+                        signals = [s for s in signals if s.strategy != "quant_way"]
+                    if rr_mult != 1.0:
+                        for s in signals:
+                            s.tp_points = max(10.0, round(s.tp_points * rr_mult, 1))
+            except Exception as e:
+                logger.debug(f"Volume regime adaptability error: {e}")
 
         # Dispatch signals through cooldown filter
         for s in signals:

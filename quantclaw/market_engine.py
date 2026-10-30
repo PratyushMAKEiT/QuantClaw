@@ -25,6 +25,7 @@ from quantclaw.utils.indicators import (
     calculate_macd,
     calculate_adx,
     calculate_volume_metrics,
+    classify_volume_regime,
 )
 from quantclaw.utils.smc_analysis import detect_fvgs, detect_order_blocks, detect_liquidity_sweeps
 
@@ -356,6 +357,7 @@ class MarketEngine:
             "stochastic": stoch,
             "adx": adx_data,
             "volume_ratio": vol_metrics["volume_ratio"],
+            "volume_regime": classify_volume_regime(vol_metrics["volume_ratio"], adx_data.get("adx", 20.0)),
             "trend": trend,
             "smc": {
                 "fvgs": fvgs[-5:] if fvgs else [],
@@ -371,3 +373,13 @@ class MarketEngine:
             "swap_sell_tonight": self.calendar.get_swap_cost(symbol, "sell", 1.0),
             "is_wednesday_swap": self.calendar.get_swap_day_multiplier() == 3,
         }
+
+    def get_volume_regime(self, symbol: str, timeframe: str = "M15") -> Dict[str, Any]:
+        """Classify and return current volume regime for symbol and timeframe."""
+        candles = self.get_candles(symbol, timeframe, 30)
+        if len(candles) < 15:
+            return classify_volume_regime(1.0, 20.0)
+        vol_metrics = calculate_volume_metrics(candles, 20)
+        adx_data = calculate_adx(candles, 14)
+        return classify_volume_regime(vol_metrics["volume_ratio"], adx_data.get("adx", 20.0))
+

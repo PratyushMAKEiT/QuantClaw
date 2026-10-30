@@ -196,6 +196,16 @@ class AppConfig:
     # ── Dynamic Risk Management & Trade Protection ─────────────────────────
     base_sl_pct: float = 0.75                # Fallback SL % (if no structural SL)
     base_tp_pct: float = 2.80                # Fallback TP % (higher RR: 1:2.8+)
+    # ── Volume Regime Intelligence & Stepped Trailing ──────────────────────
+    enable_volume_regime_intelligence: bool = True # Adapts targets & trailing to low/normal/high/climax volume
+    volume_adaptive_tp: bool = True                # Adjusts TP (1.8R low vol, 2.8R normal, 3.5R high vol)
+    enable_stepped_trailing: bool = True           # 5-Zone stepped profit securing trailing engine
+    stepped_trail_zone1_r: float = 0.65            # Zone 1 trigger: Soft cushion (SL -> -0.25R)
+    stepped_trail_zone2_r: float = 1.05            # Zone 2 trigger: Breakeven Plus (SL -> Entry + offset)
+    stepped_trail_zone3_r: float = 1.80            # Zone 3 trigger: Bank 40% cash & Lock SL at +0.80R
+    stepped_trail_zone4_r: float = 2.40            # Zone 4 trigger: Lock SL at +1.40R
+    stepped_trail_zone5_r: float = 2.80            # Zone 5 trigger: High-water runner trail
+
     enable_partial_take_profit: bool = True  # Close 50% at 1.5R, let runner ride
     partial_tp_ratio: float = 1.5
     partial_tp_close_pct: float = 0.50

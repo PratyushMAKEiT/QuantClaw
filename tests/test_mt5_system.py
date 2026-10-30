@@ -1331,3 +1331,194 @@ def test_strategy_circuit_breaker_penalizes_low_win_rate():
     dec = ml.evaluate_signal(sig)
     # The penalty drops score below 70 threshold
     assert dec.approved is False
+
+
+def test_volume_regime_classification_and_strategy_filtering():
+    """Verify volume regime intelligence accurately classifies 4 states and adapts targets."""
+    from quantclaw.utils.indicators import classify_volume_regime
+    from quantclaw.config import AppConfig
+    from quantclaw.strategy_engine import StrategyEngine
+    from quantclaw.models import StrategySignal
+    from unittest.mock import MagicMock
+
+    # 1. Indicator classification
+    low = classify_volume_regime(0.5, 12.0)
+    assert low["regime"] == "LOW_VOLUME"
+    assert low["target_rr_mult"] == 0.70
+    assert low["allow_breakout"] is False
+
+    norm = classify_volume_regime(1.1, 20.0)
+    assert norm["regime"] == "NORMAL_VOLUME"
+    assert norm["target_rr_mult"] == 1.0
+    assert norm["allow_breakout"] is True
+
+    high = classify_volume_regime(2.2, 30.0)
+    assert high["regime"] == "HIGH_VOLUME"
+    assert high["target_rr_mult"] == 1.25
+    assert high["allow_breakout"] is True
+
+    climax = classify_volume_regime(3.5, 30.0)
+    assert climax["regime"] == "CLIMAX_VOLUME"
+    assert climax["allow_breakout"] is False
+
+    # 2. Strategy Engine volume-adaptive filtering
+    cfg = AppConfig()
+    cfg.enable_volume_regime_intelligence = True
+    cfg.volume_adaptive_tp = True
+    cfg.testing = True
+
+    mock_mkt = MagicMock()
+    mock_mkt.get_volume_regime.return_value = low
+    mock_mkt.get_candles.return_value = [{"open": 1.0, "high": 1.1, "low": 0.9, "close": 1.0, "volume": 100, "time": 1000} for _ in range(30)]
+
+    strat = StrategyEngine(cfg, mock_mkt)
+    # Mock strategies to return both a trend signal and a quant_way breakout signal
+    sig1 = StrategySignal(strategy="titan_pro", symbol="EURUSD", action="buy", timeframe="M15", price=1.1000, sl_points=100.0, tp_points=280.0, strength=85.0)
+    sig2 = StrategySignal(strategy="quant_way", symbol="EURUSD", action="buy", timeframe="M15", price=1.1000, sl_points=100.0, tp_points=280.0, strength=85.0)
+
+    strat._eval_titan_pro = MagicMock(return_value=sig1)
+    strat._eval_quant_way = MagicMock(return_value=sig2)
+    strat._eval_smc_liquidity = MagicMock(return_value=None)
+    strat._eval_occ_r5_trend = MagicMock(return_value=None)
+    strat._eval_eyes_sme = MagicMock(return_value=None)
+    strat._eval_mean_reversion = MagicMock(return_value=None)
+
+    sigs = strat.scan_symbol("EURUSD", "M15")
+    # In LOW_VOLUME, quant_way breakout is filtered out!
+    assert any(s.strategy == "titan_pro" for s in sigs)
+    assert not any(s.strategy == "quant_way" for s in sigs)
+    # TP points are scaled by 0.70 (280 -> 196)
+    titan_sig = [s for s in sigs if s.strategy == "titan_pro"][0]
+    assert titan_sig.tp_points == 196.0
+
+
+def test_5_zone_stepped_trailing_engine():
+    """Verify 5-Zone Stepped Trailing smoothly progresses through all profit protection tiers."""
+    from quantclaw.config import AppConfig
+    from quantclaw.risk_manager import RiskManager
+    from unittest.mock import MagicMock
+    import asyncio
+
+    cfg = AppConfig()
+    cfg.enable_stepped_trailing = True
+
+    mock_mt5 = MagicMock()
+    mock_mt5.is_connected.return_value = True
+    sym_info = MagicMock()
+    sym_info.point = 0.00001
+    sym_info.digits = 5
+    sym_info.spread = 2
+    sym_info.trade_stops_level = 0
+    mock_mt5.get_symbol_info.return_value = sym_info
+    mock_mt5.modify_position.return_value = (True, {})
+    mock_mt5.partial_close.return_value = (True, {})
+
+    mock_market = MagicMock()
+    mock_market.get_volume_regime.return_value = {"regime": "NORMAL_VOLUME", "trail_atr_mult": 1.0}
+    mock_market.get_market_analysis.return_value = {"atr": 0.0020}
+
+    rm = RiskManager(
+        config=cfg,
+        mt5_client=mock_mt5,
+        account_tracker=MagicMock(),
+        trade_journal=MagicMock(),
+        market_engine=mock_market,
+    )
+
+    # 1. ZONE 1 TEST: Price at +0.70R -> Soft cushion SL moves to -0.25R
+    # Entry: 1.10000, initial SL: 1.09000 (sl_dist = 0.01000)
+    mock_mt5.get_positions.return_value = [{
+        "ticket": 901, "symbol": "EURUSD", "type": "BUY", "volume": 0.10,
+        "open_price": 1.10000, "current_price": 1.10700, "sl": 1.09000, "tp": 1.12800,
+        "magic": 999111, "time": 1000.0,
+    }]
+    rm._managed_positions[901] = {
+        "ticket": 901, "symbol": "EURUSD", "action": "BUY", "volume": 0.10,
+        "entry_price": 1.10000, "initial_sl": 1.09000, "initial_tp": 1.12800,
+        "current_sl": 1.09000, "current_tp": 1.12800, "last_seen_sl": 1.09000, "last_seen_tp": 1.12800,
+        "sl_distance": 0.01000, "zone1_done": False, "zone2_done": False, "zone3_done": False,
+        "breakeven_done": False, "partial_tp_done": False, "open_time": 1000.0,
+    }
+    asyncio.run(rm.monitor_open_positions())
+    managed = rm._managed_positions[901]
+    assert managed["zone1_done"] is True
+    # SL moved from 1.09000 to -0.25R = 1.09750
+    assert managed["current_sl"] == 1.09750
+
+    # 2. ZONE 2 TEST: Price advances to +1.15R -> Breakeven Plus triggers
+    mock_mt5.get_positions.return_value[0]["current_price"] = 1.11150
+    mock_mt5.get_positions.return_value[0]["sl"] = managed["current_sl"]
+    asyncio.run(rm.monitor_open_positions())
+    assert managed["zone2_done"] is True
+    assert managed["breakeven_done"] is True
+    # SL moved above entry to 1.10000 + 0.15R (1.10150)
+    assert managed["current_sl"] >= 1.10150
+
+    # 3. ZONE 3 TEST: Price advances to +1.85R -> Bank 40% volume & lock SL at +0.80R
+    mock_mt5.get_positions.return_value[0]["current_price"] = 1.11850
+    mock_mt5.get_positions.return_value[0]["sl"] = managed["current_sl"]
+    asyncio.run(rm.monitor_open_positions())
+    assert managed["zone3_done"] is True
+    assert managed["partial_tp_done"] is True
+    mock_mt5.partial_close.assert_called_with(901, 0.04)
+    # SL locked at entry + 0.80R = 1.10800
+    assert managed["current_sl"] == 1.10800
+
+    # 4. ZONE 4 TEST: Price advances to +2.45R -> Lock SL at +1.40R
+    mock_mt5.get_positions.return_value[0]["current_price"] = 1.12450
+    mock_mt5.get_positions.return_value[0]["sl"] = managed["current_sl"]
+    asyncio.run(rm.monitor_open_positions())
+    assert managed["zone4_done"] is True
+    # SL locked at entry + 1.40R = 1.11400
+    assert managed["current_sl"] == 1.11400
+
+
+def test_climax_volume_defense_and_low_volume_adaptation():
+    """Verify Climax Volume aggressively locks SL at +1.20R to protect profits ahead of exhaustion reversal."""
+    from quantclaw.config import AppConfig
+    from quantclaw.risk_manager import RiskManager
+    from unittest.mock import MagicMock
+    import asyncio
+
+    cfg = AppConfig()
+    mock_mt5 = MagicMock()
+    mock_mt5.is_connected.return_value = True
+    sym_info = MagicMock()
+    sym_info.point = 0.00001
+    sym_info.digits = 5
+    sym_info.spread = 2
+    sym_info.trade_stops_level = 0
+    mock_mt5.get_symbol_info.return_value = sym_info
+    mock_mt5.modify_position.return_value = (True, {})
+
+    # Volume spike > 3.0x triggers CLIMAX_VOLUME
+    mock_market = MagicMock()
+    mock_market.get_volume_regime.return_value = {"regime": "CLIMAX_VOLUME", "trail_atr_mult": 0.75}
+    mock_market.get_market_analysis.return_value = {"atr": 0.0020}
+
+    rm = RiskManager(
+        config=cfg,
+        mt5_client=mock_mt5,
+        account_tracker=MagicMock(),
+        trade_journal=MagicMock(),
+        market_engine=mock_market,
+    )
+
+    # Position at +1.60R gain
+    mock_mt5.get_positions.return_value = [{
+        "ticket": 902, "symbol": "EURUSD", "type": "BUY", "volume": 0.10,
+        "open_price": 1.10000, "current_price": 1.11600, "sl": 1.10150, "tp": 1.12800,
+        "magic": 999111, "time": 1000.0,
+    }]
+    rm._managed_positions[902] = {
+        "ticket": 902, "symbol": "EURUSD", "action": "BUY", "volume": 0.10,
+        "entry_price": 1.10000, "initial_sl": 1.09000, "initial_tp": 1.12800,
+        "current_sl": 1.10150, "current_tp": 1.12800, "last_seen_sl": 1.10150, "last_seen_tp": 1.12800,
+        "sl_distance": 0.01000, "breakeven_done": True, "open_time": 1000.0,
+    }
+
+    asyncio.run(rm.monitor_open_positions())
+    managed = rm._managed_positions[902]
+    # Climax defense activated and locked SL at 1.10000 + 1.20R = 1.11200
+    assert managed["climax_locked"] is True
+    assert managed["current_sl"] == 1.11200

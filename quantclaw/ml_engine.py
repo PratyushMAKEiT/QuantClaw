@@ -190,6 +190,25 @@ class MLEngine:
             except Exception:
                 pass
 
+        # Volume Regime Intelligence & Filter
+        if getattr(self.config, "enable_volume_regime_intelligence", True):
+            vol_regime_info = mkt.get("volume_regime", {})
+            vol_regime = vol_regime_info.get("regime", "NORMAL_VOLUME")
+            if vol_regime == "LOW_VOLUME":
+                if signal.strategy in ("quant_way", "eyes_sme"):
+                    raw_score -= 10.0
+                    logger.info(f"⚠️ [VOLUME GATE] Breakout strategy {signal.strategy} penalized (-10.0) in LOW_VOLUME regime")
+                elif signal.strategy == "smc_liquidity":
+                    raw_score += 8.0
+            elif vol_regime == "HIGH_VOLUME":
+                if signal.strategy in ("quant_way", "titan_pro"):
+                    raw_score += 8.0
+                    logger.info(f"🚀 [VOLUME BOOST] Strategy {signal.strategy} boosted (+8.0) in HIGH_VOLUME expansion")
+            elif vol_regime == "CLIMAX_VOLUME":
+                if signal.strategy in ("quant_way", "eyes_sme", "titan_pro"):
+                    raw_score -= 20.0
+                    logger.warning(f"🛑 [VOLUME CLIMAX] Strategy {signal.strategy} throttled (-20.0) to prevent buying volume blow-off top")
+
         final_score = min(100.0, max(0.0, raw_score))
 
         # Swap penalty — reduce score if trade would incur heavy swap costs

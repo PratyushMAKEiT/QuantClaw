@@ -100,6 +100,7 @@ input:checked+.slider{background:var(--green);}input:checked+.slider:before{tran
     <div class="stat-chip"><span class="label">ML Score</span><span class="val pos" id="h-decscore">--</span></div>
     <div class="stat-chip"><span class="label">Daily DD</span><span class="val" id="hDrawdown">0.0%</span></div>
     <div class="stat-chip"><span class="label">Margin Lvl</span><span class="val" id="hMarginLvl">--%</span></div>
+    <div class="stat-chip"><span class="label">Volume Regime</span><span class="val" id="h-volregime" style="color:#38bdf8;font-weight:700;">NORMAL</span></div>
   </div>
   <div style="display:flex;gap:8px;">
     <button id="arm-btn" class="disarmed" onclick="toggleArm()">ARM BOT</button>
@@ -260,38 +261,39 @@ _HTML_PART2 = f"""
 
   <div class="tabs">
     <button class="tab-btn active" onclick="switchRightTab('mt5')">MT5 Login</button>
-    <button class="tab-btn" onclick="switchRightTab('sizing')">Lot Sizing</button>
-    <button class="tab-btn" onclick="switchRightTab('strategies')">Strategies</button>
-    <button class="tab-btn" onclick="switchRightTab('risk')">Risk &amp; ML</button>
+    <button class="tab-btn" onclick="switchRightTab('sizing')">Capital &amp; Pairs</button>
+    <button class="tab-btn" onclick="switchRightTab('trailing')">Stepped Trailing</button>
+    <button class="tab-btn" onclick="switchRightTab('strategies')">Strategies &amp; ML</button>
+    <button class="tab-btn" onclick="switchRightTab('shields')">Safety Shields</button>
     <button class="tab-btn" onclick="switchRightTab('order')">Manual Order</button>
   </div>
 
-
   <!-- Tab 1: MT5 Connection -->
   <div id="rtab-mt5" class="tab-content active">
-    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">MetaTrader 5 Terminal Credentials</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">MetaTrader 5 Credentials &amp; Terminal</div>
     <div class="setting-row"><label>Account Login ID</label><input type="number" id="cfg-mt5login" placeholder="e.g. 10982341" onchange="saveSetting('mt5_login',+this.value)"/></div>
     <div class="setting-row"><label>Account Password</label><input type="password" id="cfg-mt5pass" placeholder="Password" onchange="saveSetting('mt5_password',this.value)"/></div>
-    <div class="setting-row"><label>Broker Server</label><input type="text" id="cfg-mt5server" placeholder="e.g. Exness-Real2" onchange="saveSetting('mt5_server',this.value)"/></div>
-    <div class="setting-row"><label>Custom MT5 Path</label><input type="text" id="cfg-mt5path" placeholder="Leave blank for auto" onchange="saveSetting('mt5_path',this.value)"/></div>
+    <div class="setting-row"><label>Broker Server</label><input type="text" id="cfg-mt5server" placeholder="e.g. TradisoGroup-Live" onchange="saveSetting('mt5_server',this.value)"/></div>
+    <div class="setting-row"><label>Custom MT5 Path</label><input type="text" id="cfg-mt5path" placeholder="Leave blank for auto-detect" onchange="saveSetting('mt5_path',this.value)"/></div>
     <div class="setting-row"><label>Magic Number</label><input type="number" id="cfg-magic" value="999111" onchange="saveSetting('mt5_magic_number',+this.value)"/></div>
 
     <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Claude AI Co-Pilot</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Claude AI Intelligence Co-Pilot</div>
       <div class="setting-row"><label>Anthropic API Key</label><input type="password" id="cfg-anthropic" placeholder="sk-ant-..." onchange="saveSetting('anthropic_api_key',this.value)"/></div>
-      <div class="setting-row"><label>Claude Model</label><select id="cfg-claudemodel" onchange="saveSetting('anthropic_model',this.value)"><option value="claude-sonnet-4-6">Claude Sonnet 4.6</option><option value="claude-3-7-sonnet-20250219">Claude 3.7 Sonnet</option><option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option></select></div>
+      <div class="setting-row"><label>Claude Model</label><select id="cfg-claudemodel" onchange="saveSetting('anthropic_model',this.value)"><option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option><option value="claude-3-7-sonnet-20250219">Claude 3.7 Sonnet</option></select></div>
     </div>
-    <button class="btn-sm btn-success" onclick="saveAndConnectMT5()" style="margin-top:12px;width:100%">â†º Save &amp; Connect MT5</button>
+    <button class="btn-sm btn-success" onclick="saveAndConnectMT5()" style="margin-top:12px;width:100%">⚡ Save &amp; Connect MT5</button>
   </div>
 
-  <!-- Tab 2: Multi-Asset Lot Sizing -->
+  <!-- Tab 2: Capital Allocation & Symbol Permissions -->
   <div id="rtab-sizing" class="tab-content">
-    <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Asset Classes &amp; Lot Sizes</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Capital Preservation &amp; Sizing</div>
     <div class="setting-row"><label>Sizing Mode</label><select id="cfg-sizingmode" onchange="saveSetting('trade_sizing_mode',this.value)"><option value="AutoRisk">AutoRisk (% Risk / SL Points)</option><option value="ManualLots">Manual Lot Quantities</option></select></div>
     <div class="setting-row"><label>Risk Per Trade %</label><input type="number" id="cfg-risktradepct" step=".1" min=".1" max="10" onchange="saveSetting('risk_per_trade_pct',+this.value)"/></div>
     <div class="setting-row"><label>Max Dollar Risk ($ Cap)</label><input type="number" id="cfg-maxriskusd" step="1" min="1" max="50" onchange="saveSetting('max_risk_usd_per_trade',+this.value)"/></div>
     <div class="setting-row"><label>Min Dollar Risk ($ Floor)</label><input type="number" id="cfg-minriskusd" step="1" min="1" max="20" onchange="saveSetting('min_risk_usd_per_trade',+this.value)"/></div>
     <div class="setting-row"><label>Max Spread (Points)</label><input type="number" id="cfg-maxspread" min="5" max="200" onchange="saveSetting('max_spread_points',+this.value)"/></div>
+
     <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">📋 Symbol Permissions</div>
@@ -309,58 +311,64 @@ _HTML_PART2 = f"""
         <button onclick="setAllSymbols(false)" style="flex:1;background:#ef4444;color:#fff;border:none;padding:5px 0;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600;">🔴 Disable All</button>
       </div>
     </div>
-
-    <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Default Lot Sizes (Manual Mode)</div>
-      <div class="setting-row"><label>EURUSD Lots</label><input type="number" id="cfg-qty-eurusd" step="0.01" min="0.01" onchange="saveSymbolQty('EURUSD',+this.value)"/></div>
-      <div class="setting-row"><label>GBPUSD Lots</label><input type="number" id="cfg-qty-gbpusd" step="0.01" min="0.01" onchange="saveSymbolQty('GBPUSD',+this.value)"/></div>
-      <div class="setting-row"><label>USDJPY Lots</label><input type="number" id="cfg-qty-usdjpy" step="0.01" min="0.01" onchange="saveSymbolQty('USDJPY',+this.value)"/></div>
-      <div class="setting-row"><label>GOLD (XAUUSD) Lots</label><input type="number" id="cfg-qty-xauusd" step="0.01" min="0.01" onchange="saveSymbolQty('XAUUSD',+this.value)"/></div>
-      <div class="setting-row"><label>BTCUSD Lots</label><input type="number" id="cfg-qty-btcusd" step="0.01" min="0.01" onchange="saveSymbolQty('BTCUSD',+this.value)"/></div>
-      <div class="setting-row"><label>US30 / DJI Lots</label><input type="number" id="cfg-qty-us30" step="0.01" min="0.01" onchange="saveSymbolQty('US30',+this.value)"/></div>
-      <div class="setting-row"><label>NAS100 / NDX Lots</label><input type="number" id="cfg-qty-nas100" step="0.01" min="0.01" onchange="saveSymbolQty('NAS100',+this.value)"/></div>
-      <div class="setting-row"><label>NDXUSD Lots</label><input type="number" id="cfg-qty-ndxusd" step="0.01" min="0.01" onchange="saveSymbolQty('NDXUSD',+this.value)"/></div>
-      <div class="setting-row"><label>DJIUSD Lots</label><input type="number" id="cfg-qty-djiusd" step="0.01" min="0.01" onchange="saveSymbolQty('DJIUSD',+this.value)"/></div>
-    </div>
-    <button class="btn-sm btn-success" onclick="loadSettings()" style="margin-top:10px;width:100%">â†º Refresh Sizing</button>
   </div>
 
-  <!-- Tab 3: Strategies -->
+  <!-- Tab 3: Stepped Trailing & Volume Regime -->
+  <div id="rtab-trailing" class="tab-content">
+    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">5-Zone Stepped Trailing &amp; Volume Engine</div>
+    <div class="setting-row"><label>🚀 5-Zone Stepped Trailing Engine</label><label class="toggle"><input type="checkbox" id="cfg-steppedtrail" onchange="saveSetting('enable_stepped_trailing',this.checked)"><span class="slider"></span></label></div>
+    <div class="setting-row"><label>🌊 Volume Regime Intelligence</label><label class="toggle"><input type="checkbox" id="cfg-volintel" onchange="saveSetting('enable_volume_regime_intelligence',this.checked)"><span class="slider"></span></label></div>
+    <div class="setting-row"><label>🎯 Volume-Adaptive Target Scaling</label><label class="toggle"><input type="checkbox" id="cfg-voltp" onchange="saveSetting('volume_adaptive_tp',this.checked)"><span class="slider"></span></label></div>
+
+    <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Stepped Profit Triggers</div>
+      <div class="setting-row"><label>Zone 1: Soft Cushion Trigger (R)</label><input type="number" id="cfg-z1r" step=".05" min=".4" max="1.0" onchange="saveSetting('stepped_trail_zone1_r',+this.value)"/></div>
+      <div class="setting-row"><label>Zone 2: Breakeven Plus Trigger (R)</label><input type="number" id="cfg-z2r" step=".05" min=".8" max="1.5" onchange="saveSetting('stepped_trail_zone2_r',+this.value)"/></div>
+      <div class="setting-row"><label>Zone 3: Bank 40% Cash &amp; Lock +0.8R</label><input type="number" id="cfg-z3r" step=".1" min="1.2" max="2.2" onchange="saveSetting('stepped_trail_zone3_r',+this.value)"/></div>
+      <div class="setting-row"><label>Zone 4: Mega Profit Lock +1.4R</label><input type="number" id="cfg-z4r" step=".1" min="1.8" max="2.6" onchange="saveSetting('stepped_trail_zone4_r',+this.value)"/></div>
+      <div class="setting-row"><label>Zone 5: Runner High-Water Trigger</label><input type="number" id="cfg-z5r" step=".1" min="2.2" max="3.5" onchange="saveSetting('stepped_trail_zone5_r',+this.value)"/></div>
+      <div class="setting-row"><label>Runner ATR Trail Multiplier</label><input type="number" id="cfg-trailmult" step=".1" min=".5" max="3.0" onchange="saveSetting('trailing_stop_atr_mult',+this.value)"/></div>
+      <div class="setting-row"><label>High-Water Trailing Stop</label><label class="toggle"><input type="checkbox" id="cfg-trailing" onchange="saveSetting('enable_trailing_stop',this.checked)"><span class="slider"></span></label></div>
+    </div>
+  </div>
+
+  <!-- Tab 4: Strategies & ML Brain -->
   <div id="rtab-strategies" class="tab-content">
-    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Autonomous Engine</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Autonomous Execution Engine</div>
     <div class="setting-row"><label>24/7 Autonomous Scanning</label><label class="toggle"><input type="checkbox" id="cfg-auto" onchange="saveSetting('enable_autonomous_trading',this.checked)"><span class="slider"></span></label></div>
 
     <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">5 Institutional Strategies</div>
-      <div class="setting-row"><label>⚡ TITAN PRO (Institutional Flow &amp; Reversal)</label><label class="toggle"><input type="checkbox" id="cfg-titan" onchange="saveSetting('strategy_titan_pro_enabled',this.checked)"><span class="slider"></span></label></div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Institutional Trend Strategies</div>
+      <div class="setting-row"><label>⚡ TITAN PRO (Order Flow &amp; Reversal)</label><label class="toggle"><input type="checkbox" id="cfg-titan" onchange="saveSetting('strategy_titan_pro_enabled',this.checked)"><span class="slider"></span></label></div>
       <div class="setting-row"><label>SMC Liquidity &amp; Order Blocks</label><label class="toggle"><input type="checkbox" id="cfg-smc" onchange="saveSetting('strategy_smc_enabled',this.checked)"><span class="slider"></span></label></div>
       <div class="setting-row"><label>OCC R5 Trend &amp; Momentum</label><label class="toggle"><input type="checkbox" id="cfg-occ" onchange="saveSetting('strategy_occ_r5_enabled',this.checked)"><span class="slider"></span></label></div>
       <div class="setting-row"><label>Eyes Smart Structure Pro</label><label class="toggle"><input type="checkbox" id="cfg-eyes" onchange="saveSetting('strategy_eyes_sme_enabled',this.checked)"><span class="slider"></span></label></div>
-      <div class="setting-row"><label>Mean-Reversion Snapper</label><label class="toggle"><input type="checkbox" id="cfg-meanrev" onchange="saveSetting('strategy_mean_rev_enabled',this.checked)"><span class="slider"></span></label></div>
       <div class="setting-row"><label>Quant Way Institutional Flow</label><label class="toggle"><input type="checkbox" id="cfg-qw" onchange="saveSetting('strategy_quant_way_enabled',this.checked)"><span class="slider"></span></label></div>
+      <div class="setting-row"><label>Mean-Reversion Snapper (Counter-trend)</label><label class="toggle"><input type="checkbox" id="cfg-meanrev" onchange="saveSetting('strategy_mean_rev_enabled',this.checked)"><span class="slider"></span></label></div>
     </div>
-  </div>
-
-  <!-- Tab 4: Risk & ML -->
-  <div id="rtab-risk" class="tab-content">
-    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Capital Preservation &amp; Protection</div>
-    <div class="setting-row"><label>Daily Max Loss % (Circuit Breaker)</label><input type="number" id="cfg-dloss" step=".5" min="1" max="20" onchange="saveSetting('daily_max_loss_pct',+this.value)"/></div>
-    <div class="setting-row"><label>Weekly Profit Target %</label><input type="number" id="cfg-wtp" step="5" min="10" max="100" onchange="saveSetting('weekly_profit_target_pct',+this.value)"/></div>
-    <div class="setting-row"><label>Max Concurrent Positions</label><input type="number" id="cfg-maxpos" step="1" min="1" max="10" onchange="saveSetting('max_concurrent_positions',+this.value)"/></div>
-    <div class="setting-row"><label>🛡️ Soft Risk Reduction (+0.75R to -0.25R SL)</label><label class="toggle"><input type="checkbox" id="cfg-softrisk" onchange="saveSetting('enable_soft_risk_reduction',this.checked)"><span class="slider"></span></label></div>
-    <div class="setting-row"><label>🛡️ Early Breakeven (+0.45R to 0 SL)</label><label class="toggle"><input type="checkbox" id="cfg-earlybe" onchange="saveSetting('enable_early_breakeven',this.checked)"><span class="slider"></span></label></div>
-    <div class="setting-row"><label>Dynamic Breakeven (1.2R)</label><label class="toggle"><input type="checkbox" id="cfg-breakeven" onchange="saveSetting('enable_breakeven_trigger',this.checked)"><span class="slider"></span></label></div>
-    <div class="setting-row"><label>Partial Take Profit (40% @ 1.8R)</label><label class="toggle"><input type="checkbox" id="cfg-partialtp" onchange="saveSetting('enable_partial_take_profit',this.checked)"><span class="slider"></span></label></div>
-    <div class="setting-row"><label>ATR Trailing Stop</label><label class="toggle"><input type="checkbox" id="cfg-trailing" onchange="saveSetting('enable_trailing_stop',this.checked)"><span class="slider"></span></label></div>
 
     <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">ML Brain &amp; Confluence</div>
-      <div class="setting-row"><label>ML Execution Threshold</label><input type="number" id="cfg-mlthresh" step="1" min="50" max="100" onchange="saveSetting('ml_brain_min_execute_score',+this.value)"/></div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">ML Conviction Brain</div>
+      <div class="setting-row"><label>ML Execution Threshold (0-100)</label><input type="number" id="cfg-mlthresh" step="1" min="50" max="100" onchange="saveSetting('ml_brain_min_execute_score',+this.value)"/></div>
       <div class="setting-row"><label>Confluence Bonus (+Pts)</label><input type="number" id="cfg-confluence" step="5" min="0" max="50" onchange="saveSetting('ml_brain_confluence_bonus',+this.value)"/></div>
     </div>
   </div>
 
-  <!-- Tab 5: Manual Market Order -->
+  <!-- Tab 5: Safety Shields & Risk Protection -->
+  <div id="rtab-shields" class="tab-content">
+    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Account Risk Shield &amp; Safeguards</div>
+    <div class="setting-row"><label>🛡️ Commission Friction Shield (Max %)</label><input type="number" id="cfg-commmax" step="1" min="5" max="30" onchange="saveSetting('commission_max_pct_of_tp',+this.value)"/></div>
+    <div class="setting-row"><label>Daily Max Loss % (Circuit Breaker)</label><input type="number" id="cfg-dloss" step=".5" min="1" max="20" onchange="saveSetting('daily_max_loss_pct',+this.value)"/></div>
+    <div class="setting-row"><label>Max Concurrent Positions</label><input type="number" id="cfg-maxpos" step="1" min="1" max="10" onchange="saveSetting('max_concurrent_positions',+this.value)"/></div>
+    <div class="setting-row"><label>Max Consecutive Losses</label><input type="number" id="cfg-maxconsec" step="1" min="2" max="10" onchange="saveSetting('max_consecutive_losses',+this.value)"/></div>
+    <div class="setting-row"><label>Tactical Loss Cooldown (Seconds)</label><input type="number" id="cfg-cooldown" step="60" min="0" max="3600" onchange="saveSetting('loss_cooldown_seconds',+this.value)"/></div>
+    <div class="setting-row"><label>📰 High-Impact News Filter</label><label class="toggle"><input type="checkbox" id="cfg-newsfilter" onchange="saveSetting('enable_news_filter',this.checked)"><span class="slider"></span></label></div>
+    <div class="setting-row"><label>News Pause Minutes (Before/After)</label><input type="number" id="cfg-newspause" step="5" min="5" max="60" onchange="saveSetting('news_pause_min_before',+this.value)"/></div>
+    <div class="setting-row"><label>Session Quality Filter Gate</label><label class="toggle"><input type="checkbox" id="cfg-sessionfilter" onchange="saveSetting('enable_session_filter',this.checked)"><span class="slider"></span></label></div>
+    <div class="setting-row"><label>Weekly Profit Target %</label><input type="number" id="cfg-wtp" step="5" min="10" max="100" onchange="saveSetting('weekly_profit_target_pct',+this.value)"/></div>
+  </div>
+
+  <!-- Tab 6: Manual Market Order -->
   <div id="rtab-order" class="tab-content">
     <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Manual Market Order Dispatch</div>
     <div class="setting-row"><label>Symbol</label><input type="text" id="ord-symbol" placeholder="EURUSD, XAUUSD, BTCUSD" value="EURUSD"/></div>
@@ -368,7 +376,7 @@ _HTML_PART2 = f"""
     <div class="setting-row"><label>Lots</label><input type="number" id="ord-lots" step="0.01" min="0.01" value="0.01"/></div>
     <div class="setting-row"><label>Stop Loss (Price)</label><input type="number" id="ord-sl" step="0.0001" placeholder="0.00000 (Optional)"/></div>
     <div class="setting-row"><label>Take Profit (Price)</label><input type="number" id="ord-tp" step="0.0001" placeholder="0.00000 (Optional)"/></div>
-    <button class="btn-sm btn-success" onclick="placeManualOrder()" style="margin-top:14px;width:100%">ðŸš€ Send Market Order to MT5</button>
+    <button class="btn-sm btn-success" onclick="placeManualOrder()" style="margin-top:14px;width:100%">🚀 Send Market Order to MT5</button>
   </div>
 </div>
 </div>
@@ -727,6 +735,11 @@ async function loadSettings(){
 
   sn('cfg-dloss',d.daily_max_loss_pct);sn('cfg-wtp',d.weekly_profit_target_pct);sn('cfg-maxpos',d.max_concurrent_positions);
   sc('cfg-softrisk',d.enable_soft_risk_reduction);sc('cfg-earlybe',d.enable_early_breakeven);sc('cfg-breakeven',d.enable_breakeven_trigger);sc('cfg-partialtp',d.enable_partial_take_profit);sc('cfg-trailing',d.enable_trailing_stop);
+  sc('cfg-steppedtrail',d.enable_stepped_trailing);sc('cfg-volintel',d.enable_volume_regime_intelligence);sc('cfg-voltp',d.volume_adaptive_tp);
+  sn('cfg-z1r',d.stepped_trail_zone1_r);sn('cfg-z2r',d.stepped_trail_zone2_r);sn('cfg-z3r',d.stepped_trail_zone3_r);sn('cfg-z4r',d.stepped_trail_zone4_r);sn('cfg-z5r',d.stepped_trail_zone5_r);
+  sn('cfg-trailmult',d.trailing_stop_atr_mult);sn('cfg-commmax',d.commission_max_pct_of_tp);
+  sn('cfg-maxconsec',d.max_consecutive_losses);sn('cfg-cooldown',d.loss_cooldown_seconds);
+  sc('cfg-newsfilter',d.enable_news_filter);sn('cfg-newspause',d.news_pause_min_before);sc('cfg-sessionfilter',d.enable_session_filter);
   sn('cfg-mlthresh',d.ml_brain_min_execute_score);sn('cfg-confluence',d.ml_brain_confluence_bonus);
 
   updateArmButton(d.armed);
@@ -952,6 +965,14 @@ async function loadStatus(){
     else{if(dot2)dot2.className='dot red';if(sb2)sb2.textContent='Disconnected';}
 
     const dd = document.getElementById('hDrawdown');
+    const vrEl = document.getElementById('h-volregime');
+    if (vrEl && d.volume_regime) {
+      vrEl.textContent = d.volume_regime.replace('_VOLUME', '');
+      if (d.volume_regime === 'LOW_VOLUME') vrEl.style.color = '#facc15';
+      else if (d.volume_regime === 'HIGH_VOLUME') vrEl.style.color = '#22c55e';
+      else if (d.volume_regime === 'CLIMAX_VOLUME') vrEl.style.color = '#ef4444';
+      else vrEl.style.color = '#38bdf8';
+    }
     if (dd && d.daily_drawdown_pct !== undefined) {
         dd.textContent = d.daily_drawdown_pct.toFixed(2) + '%';
         dd.className = 'val ' + (d.daily_drawdown_pct > 2.0 ? 'neg' : (d.daily_drawdown_pct > 1.0 ? 'warn' : 'pos'));
