@@ -1522,3 +1522,31 @@ def test_climax_volume_defense_and_low_volume_adaptation():
     # Climax defense activated and locked SL at 1.10000 + 1.20R = 1.11200
     assert managed["climax_locked"] is True
     assert managed["current_sl"] == 1.11200
+
+
+def test_dashboard_ui_cleanliness_and_preset_symbols():
+    """Verify modern UI cleanliness: zero mojibake, preset symbols catalog, valid tab IDs."""
+    from quantclaw.dashboard import get_dashboard_html, PRESET_SYMBOLS_CATALOG
+
+    html = get_dashboard_html()
+
+    # 1. Zero Mojibake
+    mojibake_patterns = ["\u00e2\u0161\u00a1", "\u00f0\u0178", "\u00e2\u20ac\u201d"]
+    for bad in mojibake_patterns:
+        assert bad not in html, f"Corrupted mojibake found in dashboard HTML"
+
+    # 2. Preset Symbols Catalog populated
+    symbols = [p["symbol"] for p in PRESET_SYMBOLS_CATALOG]
+    for required in ["NDXUSD", "DJIUSD", "BTCUSD", "XAUUSD", "EURUSD", "GBPUSD", "USDJPY"]:
+        assert required in symbols, f"Preset symbol {required} missing from PRESET_SYMBOLS_CATALOG"
+
+    # 3. Settings Tab IDs
+    for tab_id in ["rtab-mt5", "rtab-sizing", "rtab-trailing", "rtab-strategies", "rtab-shields", "rtab-order"]:
+        assert f'id="{tab_id}"' in html, f"Tab content ID {tab_id} missing from HTML"
+
+    # 4. Critical UI elements
+    assert "FLATTEN ALL" in html
+    assert "ARM BOT" in html
+    assert 'id="symbol-toggle-list"' in html
+    assert 'id="sym-search"' in html
+    assert "filterSymbolCat" in html
