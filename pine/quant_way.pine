@@ -1,0 +1,165 @@
+// ==============================================================================
+// Quant Way - QuantClaw Edition
+// Pine Script v6 — TradingView Strategy with QuantClaw Webhook Integration
+// ==============================================================================
+//
+// A high-precision TradingView strategy that uses Market Structure Shifts (MSS),
+// Liquidity Sweeps, and Volume Confirmation to generate entry signals aligned
+// with QuantClaw's ML and SMC logic.
+//
+// SETUP INSTRUCTIONS:
+//   1. Paste this script into TradingView Pine Editor, Save & Add to Chart.
+//   2. Open the script settings → QuantClaw Settings group:
+//      - Enter your QuantClaw Webhook Token (must match the token in QuantClaw app).
+//      - Set Trade Quantity in $ (this is passed to QuantClaw for sizing).
+//   3. Create an Alert (Alt+A):
+//      - Condition: "Quant Way - QuantClaw Edition"
+//      - Notifications → Check "Webhook URL"
+//      - Webhook URL: Your QuantClaw server URL (e.g. https://your-ngrok.ngrok.io/webhook)
+//      - Message field: {{strategy.order.alert_message}}
+//   4. Save the alert.
+//
+// ==============================================================================
+
+//@version=6
+strategy(
+     title             = "Quant Way - QuantClaw Edition", 
+     shorttitle        = "Quant Way", 
+     overlay           = true, 
+     pyramiding        = 0, 
+     default_qty_type  = strategy.percent_of_equity, 
+     default_qty_value = 10, 
+     calc_on_every_tick = false
+     )
+
+// ==========================================
+// 1. QUANTCLAW WEBHOOK SETTINGS
+// ==========================================
+tradeQtyDollars = input.float(100.0,          title="Trade Quantity in $",   group="QuantClaw Settings")
+webhookCode     = input.string("7JM547NDTXF76FQ5", title="QuantClaw Webhook Token", group="QuantClaw Settings",
+     tooltip="Must match the Webhook Token configured in QuantClaw's Settings panel")
+
+// ==========================================
+// 2. STRATEGY PARAMETERS (SMC & VOLATILITY)
+// ==========================================
+trendEmaFast   = input.int(20, title="Fast Trend EMA", group="Trend Filter")
+trendEmaSlow   = input.int(50, title="Slow Trend EMA", group="Trend Filter")
+volumeFilter   = input.bool(true, title="Enable Volume Filter?", group="Volume Filter")
+volAvgLength   = input.int(20, title="Volume MA Period", group="Volume Filter")
+volMultiplier  = input.float(1.5, title="Min Volume Ratio (vs MA)", group="Volume Filter")
+
+sweepFilter    = input.bool(true, title="Enable Liquidity Sweep Filter?", group="Liquidity Sweep")
+sweepLookback  = input.int(15, title="Sweep Lookback (Bars)", group="Liquidity Sweep")
+wickRatioMin   = input.float(0.3, title="Min Wick Ratio for Rejection", group="Liquidity Sweep", tooltip="Wick size divided by total candle range")
+
+// ==========================================
+// 2b. EXIT SETTINGS (FOR TRADINGVIEW BACKTEST ONLY)
+// ==========================================
+slPercent      = input.float(1.5, title="Stop Loss % (0 to disable)", minval=0.0, step=0.1, group="Backtest Exit Settings")
+tpPercent      = input.float(3.0, title="Take Profit % (0 to disable)", minval=0.0, step=0.1, group="Backtest Exit Settings")
+
+// ==========================================
+// 3. INDICATOR CALCULATIONS
+// ==========================================
+emaFast = ta.ema(close, trendEmaFast)
+emaSlow = ta.ema(close, trendEmaSlow)
+trendBullish = emaFast > emaSlow
+
+// Volume Confirmation
+volMa = ta.sma(volume, volAvgLength)
+volConfirm = not volumeFilter or (volume > volMa * volMultiplier)
+
+// Liquidity Sweep / Wick Rejections
+highestHigh = ta.highest(high, sweepLookback)[1]
+lowestLow   = ta.lowest(low, sweepLookback)[1]
+
+candleRange = high - low
+upperWick = high - math.max(open, close)
+lowerWick = math.min(open, close) - low
+
+bullishWickSweep = sweepFilter and (low < lowestLow) and (close > lowestLow) and (lowerWick > candleRange * wickRatioMin)
+bearishWickSweep = sweepFilter and (high > highestHigh) and (close < highestHigh) and (upperWick > candleRange * wickRatioMin)
+
+// Standard RSI / ATR for Webhook Payloads
+atrValue = ta.atr(14)
+rsiValue = ta.rsi(close, 14)
+
+// ==========================================
+// 4. STRATEGY TRIGGERS
+// ==========================================
+// Crossover evaluations (evaluated globally to ensure history is updated every bar)
+emaCrossOver   = ta.crossover(close, emaFast)
+emaCrossUnder  = ta.crossunder(close, emaFast)
+slowCrossOver  = ta.crossover(close, emaSlow)
+slowCrossUnder = ta.crossunder(close, emaSlow)
+
+// Long Entry: Trend is bullish, volume confirms, and we swept liquidity or crossed over
+longCond = trendBullish and volConfirm and (emaCrossOver or bullishWickSweep)
+
+// Short Entry: Trend is bearish, volume confirms, and we swept liquidity or crossed under
+shortCond = not trendBullish and volConfirm and (emaCrossUnder or bearishWickSweep)
+
+// Exits
+longExit = slowCrossUnder
+shortExit = slowCrossOver
+
+// Visuals
+plot(emaFast, color=color.blue, title="EMA Fast")
+plot(emaSlow, color=color.orange, title="EMA Slow")
+plotshape(bullishWickSweep, title="Bullish Sweep", style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small)
+plotshape(bearishWickSweep, title="Bearish Sweep", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small)
+
+// ==========================================
+// 5. QUANTCLAW JSON PAYLOADS
+// ==========================================
+get_entry_json(order_type) =>
+    '[\n  {\n    "exchange": "delta",\n    "price": "' + str.tostring(close) + '",\n    "chart_symbol": "' + syminfo.ticker + '",\n    "order_type": "' + order_type + '",\n    "instrument_type": "NA",\n    "quantity": "' + str.tostring(tradeQtyDollars) + '",\n    "atr": "' + str.tostring(atrValue, "#.##") + '",\n    "rsi": "' + str.tostring(rsiValue, "#.##") + '",\n    "code": "' + webhookCode + '"\n  }\n]'
+
+get_exit_json(order_type) =>
+    '[\n  {\n    "exchange": "delta",\n    "price": "' + str.tostring(close) + '",\n    "chart_symbol": "' + syminfo.ticker + '",\n    "order_type": "' + order_type + '",\n    "instrument_type": "NA",\n    "quantity": "' + str.tostring(tradeQtyDollars) + '",\n    "atr": "0",\n    "rsi": "0",\n    "code": "' + webhookCode + '"\n  }\n]'
+
+buyMsg   = get_entry_json("buy")
+sellMsg  = get_exit_json("sell")
+shortMsg = get_entry_json("short")
+coverMsg = get_exit_json("cover")
+
+// ==========================================
+// 6. STRATEGY EXECUTION
+// ==========================================
+// Calculate TP/SL prices based on position average entry price
+longSL = slPercent > 0.0 ? strategy.position_avg_price * (1 - slPercent / 100) : na
+longTP = tpPercent > 0.0 ? strategy.position_avg_price * (1 + tpPercent / 100) : na
+
+shortSL = slPercent > 0.0 ? strategy.position_avg_price * (1 + slPercent / 100) : na
+shortTP = tpPercent > 0.0 ? strategy.position_avg_price * (1 - tpPercent / 100) : na
+
+// Long Sequence
+if longCond
+    if strategy.position_size < 0
+        strategy.close("short", comment="Close Short", alert_message=coverMsg)
+        // alert(coverMsg, alert.freq_once_per_bar_close) // Bypassed during reversal to prevent double-signals
+    strategy.entry("long", strategy.long, comment="Open Long", alert_message=buyMsg)
+    alert(buyMsg, alert.freq_once_per_bar_close)
+
+if longExit and strategy.position_size > 0
+    strategy.close("long", comment="Exit Long", alert_message=sellMsg)
+    alert(sellMsg, alert.freq_once_per_bar_close)
+
+// Short Sequence
+if shortCond
+    if strategy.position_size > 0
+        strategy.close("long", comment="Close Long", alert_message=sellMsg)
+        // alert(sellMsg, alert.freq_once_per_bar_close) // Bypassed during reversal to prevent double-signals
+    strategy.entry("short", strategy.short, comment="Open Short", alert_message=shortMsg)
+    alert(shortMsg, alert.freq_once_per_bar_close)
+
+if shortExit and strategy.position_size < 0
+    strategy.close("short", comment="Exit Short", alert_message=coverMsg)
+    alert(coverMsg, alert.freq_once_per_bar_close)
+
+// Place Strategy Exits for Backtesting
+if strategy.position_size > 0
+    strategy.exit("XL", from_entry="long", limit=longTP, stop=longSL, alert_message=sellMsg)
+
+if strategy.position_size < 0
+    strategy.exit("XS", from_entry="short", limit=shortTP, stop=shortSL, alert_message=coverMsg)

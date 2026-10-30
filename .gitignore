@@ -1,0 +1,74 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.manifest
+*.spec
+!quantclaw.spec
+
+# Pytest / testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+scratch_test_result.txt
+
+# Local databases & journal files
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite-journal
+quantclaw_mt5.db
+data/trade_journal.db
+
+# Runtime data & memory logs (preserve example configs)
+data/trades_history.json
+data/ai_memory.json
+data/ml_performance_memory.json
+data/session_stats.json
+data/shadow_trades.json
+data/update_proposal.json
+data/audit_test.json
+data/antigravity_tuning_report.json
+
+# Logs
+*.log
+build_log.txt
+logs/
+
+# Temporary / scratch scripts
+scratch/
+scratch_*
+_patch_*.py
+fix_*.py
+patch_fixes.py
+
+# Environment & IDE
+.env
+.venv/
+env/
+venv/
+ENV/
+.claude/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Android build outputs & local config
+QuantClawAndroid/.gradle/
+QuantClawAndroid/.idea/
+QuantClawAndroid/build/
+QuantClawAndroid/app/build/
+QuantClawAndroid/local.properties
+QuantClawAndroid/*.apk
+QuantClawAndroid/*.aab
+QuantClawAndroid/.cxx/

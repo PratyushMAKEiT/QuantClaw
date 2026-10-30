@@ -1,0 +1,256 @@
+﻿// ==============================================================================
+// Eyes Smart Structure Engine - QuantClaw Edition
+// Pine Script v6 -- TradingView Strategy with QuantClaw Webhook Integration
+// ==============================================================================
+//
+// Detects Market Structure shifts (HH / HL / LH / LL) combined with
+// impulse candle confirmation to generate high-quality directional signals.
+// Sends the exact same JSON payload format as OCC R5 and Quant Way scripts
+// to QuantClaw s /webhook endpoint on Delta Exchange.
+//
+// SETUP INSTRUCTIONS:
+//   1. Paste this script into TradingView Pine Editor, Save & Add to Chart.
+//   2. Open the script settings -> QuantClaw Settings group:
+//      - Enter your QuantClaw Webhook Token (must match the token in QuantClaw app).
+//      - Set Trade Quantity in $ (this is passed to QuantClaw for sizing).
+//   3. Create an Alert (Alt+A):
+//      - Condition: "Eyes Smart Structure Engine - QuantClaw Edition"
+//      - Notifications -> Check "Webhook URL"
+//      - Webhook URL: Your QuantClaw server URL (e.g. http://YOUR_IP:80/webhook)
+//      - Message field: {{strategy.order.alert_message}}
+//   4. Save the alert. QuantClaw will now receive all trade signals.
+//
+// NOTE: TP/SL in "Exit Settings" control TradingView backtest exits only.
+//       QuantClaw s Risk Manager handles real TP/SL/trailing independently.
+//
+// ==============================================================================
+
+//@version=6
+strategy(
+     title             = "Eyes Smart Structure Engine - QuantClaw Edition",
+     shorttitle        = "Eyes SME QC",
+     overlay           = true,
+     pyramiding        = 0,
+     default_qty_type  = strategy.percent_of_equity,
+     default_qty_value = 10,
+     calc_on_every_tick = false
+     )
+
+// ==========================================
+// 1. QUANTCLAW WEBHOOK SETTINGS
+// ==========================================
+tradeQtyDollars = input.float(100.0,           title="Trade Quantity in $",    group="QuantClaw Settings")
+webhookCode     = input.string("7JM547NDTXF76FQ5", title="QuantClaw Webhook Token", group="QuantClaw Settings",
+     tooltip="Must match the Webhook Token configured in QuantClaw Settings panel")
+
+// ==========================================
+// 2. STRUCTURE ENGINE SETTINGS
+// ==========================================
+pivotLen      = input.int(4,     "Pivot Length",             minval=1,  maxval=20,  group="Structure Settings")
+atrLen        = input.int(7,     "ATR Period",               minval=1,  maxval=50,  group="Structure Settings")
+rsiLen        = input.int(14,    "RSI Period",               minval=1,  maxval=50,  group="Structure Settings")
+impulseFactor = input.float(1.0, "Impulse Strength",         minval=0.1,maxval=5.0, group="Structure Settings")
+confirmClose  = input.bool(true, "Signal After Candle Close",                       group="Structure Settings")
+tradeType     = input.string("BOTH", "Trade Direction", options=["LONG","SHORT","BOTH","NONE"], group="Structure Settings")
+
+// ==========================================
+// 3. EXIT SETTINGS (for TradingView backtest only)
+// ==========================================
+slPoints = input.int(0,     "Initial Stop Loss Points (0 to disable)",    minval=0, group="Exit Settings")
+tpPoints = input.int(0,     "Initial Take Profit Points (0 to disable)",  minval=0, group="Exit Settings")
+ebar     = input.int(10000, "Number of Bars for Back Testing",             minval=0, group="Exit Settings")
+
+// ==========================================
+// 4. VISUAL SETTINGS
+// ==========================================
+buyColor  = input.color(color.rgb(61, 241, 6), "BUY  Label Color", group="Visuals")
+sellColor = input.color(color.rgb(242, 5, 5),  "SELL Label Color", group="Visuals")
+textColor = input.color(color.rgb(10, 0, 0),   "Text Color",       group="Visuals")
+showSLTP  = input.bool(true,                   "Show SL/TP Lines", group="Visuals")
+
+// ==========================================
+// 5. CORE CALCULATIONS
+// ==========================================
+atrValue = ta.atr(atrLen)
+rsiValue = ta.rsi(close, rsiLen)
+
+ph = ta.pivothigh(high, pivotLen, pivotLen)
+pl = ta.pivotlow(low,  pivotLen, pivotLen)
+
+// ==========================================
+// 6. STRUCTURE STORAGE
+// ==========================================
+var float lastHigh   = na
+var float prevHigh   = na
+var float lastLow    = na
+var float prevLow    = na
+var int   lastSignal = 0
+
+if pivotLen != pivotLen[1]
+    lastHigh   := na
+    prevHigh   := na
+    lastLow    := na
+    prevLow    := na
+    lastSignal := 0
+
+if not na(ph)
+    prevHigh := lastHigh
+    lastHigh := ph
+
+if not na(pl)
+    prevLow := lastLow
+    lastLow := pl
+
+// ==========================================
+// 7. IMPULSE CANDLE FILTER
+// ==========================================
+body        = math.abs(close - open)
+candleRange = high - low
+
+bullImpulse = close > open and body > candleRange * 0.5 and body > atrValue * impulseFactor
+bearImpulse = close < open and body > candleRange * 0.5 and body > atrValue * impulseFactor
+
+// ==========================================
+// 8. STRUCTURE CLASSIFICATION
+// ==========================================
+isHH = not na(prevHigh) and lastHigh > prevHigh   // Higher High
+isLH = not na(prevHigh) and lastHigh < prevHigh   // Lower  High -> short bias
+isLL = not na(prevLow)  and lastLow  < prevLow    // Lower  Low
+isHL = not na(prevLow)  and lastLow  > prevLow    // Higher Low  -> long bias
+
+// ==========================================
+// 9. ENTRY CONDITIONS (signal engine)
+// ==========================================
+sellHH = isHH and bearImpulse
+sellLH = isLH and bearImpulse
+buyLL  = isLL and bullImpulse
+buyHL  = isHL and bullImpulse
+
+// De-duplicate: only fire if direction changed
+rawBuy  = (buyLL  or buyHL)  and lastSignal != 1
+rawSell = (sellHH or sellLH) and lastSignal != -1
+
+// Candle-close confirmation
+longCond  = confirmClose ? (rawBuy  and barstate.isconfirmed) : rawBuy
+shortCond = confirmClose ? (rawSell and barstate.isconfirmed) : rawSell
+
+// ==========================================
+// 10. QUANTCLAW JSON MESSAGE BUILDERS
+// ==========================================
+//
+// Builds a JSON array payload that QuantClaw s FastAPI /webhook endpoint parses.
+// Keys recognized by the bot:
+//   chart_symbol  -> maps to "symbol" (ticker)
+//   order_type    -> maps to "action" (buy/sell/short/cover)
+//   price         -> current close price
+//   quantity      -> trade size in USD
+//   code          -> webhook authentication token
+//   atr           -> ATR value (used by Risk Manager for regime management)
+//   rsi           -> RSI value (used by AI engine for regime classification)
+
+// Entry payload: includes ATR + RSI for QuantClaw AI + Risk Manager
+get_entry_json(order_type) =>
+    '[\n  {\n    "exchange": "delta",\n    "price": "' + str.tostring(close) + '",\n    "chart_symbol": "' + syminfo.ticker + '",\n    "order_type": "' + order_type + '",\n    "instrument_type": "NA",\n    "quantity": "' + str.tostring(tradeQtyDollars) + '",\n    "atr": "' + str.tostring(atrValue, "#.##") + '",\n    "rsi": "' + str.tostring(rsiValue, "#.##") + '",\n    "code": "' + webhookCode + '"\n  }\n]'
+
+// Exit payload: closes existing position -- AI bypass, no ATR/RSI needed
+get_exit_json(order_type) =>
+    '[\n  {\n    "exchange": "delta",\n    "price": "' + str.tostring(close) + '",\n    "chart_symbol": "' + syminfo.ticker + '",\n    "order_type": "' + order_type + '",\n    "instrument_type": "NA",\n    "quantity": "' + str.tostring(tradeQtyDollars) + '",\n    "atr": "0",\n    "rsi": "0",\n    "code": "' + webhookCode + '"\n  }\n]'
+
+buyMsg   = get_entry_json("buy")    // Opens Long
+sellMsg  = get_exit_json("sell")    // Closes Long cleanly
+shortMsg = get_entry_json("short")  // Opens Short
+coverMsg = get_exit_json("cover")   // Closes Short cleanly
+
+// ==========================================
+// 11. EXECUTION LAYER WITH WEBHOOK ALERTS
+// ==========================================
+tdays  = (timenow - time) / 60000.0
+tdays := timeframe.ismonthly ? tdays / 1440.0 / 5.0 / 4.3 / timeframe.multiplier : timeframe.isweekly ? tdays / 1440.0 / 5.0 / timeframe.multiplier : timeframe.isdaily ? tdays / 1440.0 / timeframe.multiplier : tdays / timeframe.multiplier
+
+TP = tpPoints > 0 ? tpPoints : na
+SL = slPoints > 0 ? slPoints : na
+
+if (ebar == 0 or tdays <= ebar) and tradeType != "NONE"
+
+    // --- LONG ENTRY SEQUENCE ---
+    if longCond and tradeType != "SHORT"
+        lastSignal := 1
+        if strategy.position_size < 0
+            // Close Short first using safe cover payload
+            strategy.close("short", comment="Close Short", alert_message=coverMsg)
+            // alert(coverMsg) -- bypassed on reversal to prevent double-signals
+        strategy.entry("long", strategy.long, comment="Open Long", alert_message=buyMsg)
+        alert(buyMsg, alert.freq_once_per_bar_close)
+
+    // --- SHORT ENTRY SEQUENCE ---
+    if shortCond and tradeType != "LONG"
+        lastSignal := -1
+        if strategy.position_size > 0
+            // Close Long first using safe sell payload
+            strategy.close("long", comment="Close Long", alert_message=sellMsg)
+            // alert(sellMsg) -- bypassed on reversal to prevent double-signals
+        strategy.entry("short", strategy.short, comment="Open Short", alert_message=shortMsg)
+        alert(shortMsg, alert.freq_once_per_bar_close)
+
+    // --- STANDARD EXITS (single-direction mode) ---
+    if shortCond and tradeType == "LONG"
+        strategy.close("long", comment="Close Long", alert_message=sellMsg)
+        alert(sellMsg, alert.freq_once_per_bar_close)
+
+    if longCond and tradeType == "SHORT"
+        strategy.close("short", comment="Close Short", alert_message=coverMsg)
+        alert(coverMsg, alert.freq_once_per_bar_close)
+
+    strategy.exit("XL", from_entry="long",  profit=TP, loss=SL)
+    strategy.exit("XS", from_entry="short", profit=TP, loss=SL)
+
+// ==========================================
+// 12. SL / TP REFERENCE LEVELS (1R SL, 1.5R TP1, 2.5R TP2)
+// ==========================================
+var float slBuy   = na
+var float tp1Buy  = na
+var float tp2Buy  = na
+var float slSell  = na
+var float tp1Sell = na
+var float tp2Sell = na
+
+if longCond
+    slBuy   := close - atrValue * 1.0
+    tp1Buy  := close + atrValue * 1.5
+    tp2Buy  := close + atrValue * 2.5
+
+if shortCond
+    slSell  := close + atrValue * 1.0
+    tp1Sell := close - atrValue * 1.5
+    tp2Sell := close - atrValue * 2.5
+
+// ==========================================
+// 13. VISUALS
+// ==========================================
+structLabel = isHL ? "HL" : isLL ? "LL" : isLH ? "LH" : isHH ? "HH" : "?"
+
+if longCond
+    label.new(bar_index, low,
+        "BUY\n" + structLabel,
+        style     = label.style_label_up,
+        color     = buyColor,
+        textcolor = textColor,
+        size      = size.normal)
+
+if shortCond
+    label.new(bar_index, high,
+        "SELL\n" + structLabel,
+        style     = label.style_label_down,
+        color     = sellColor,
+        textcolor = textColor,
+        size      = size.normal)
+
+plot(showSLTP and longCond  ? slBuy   : na, "BUY SL",  color=color.red,     linewidth=1, style=plot.style_linebr)
+plot(showSLTP and longCond  ? tp1Buy  : na, "BUY TP1", color=color.lime,    linewidth=1, style=plot.style_linebr)
+plot(showSLTP and longCond  ? tp2Buy  : na, "BUY TP2", color=color.green,   linewidth=1, style=plot.style_linebr)
+plot(showSLTP and shortCond ? slSell  : na, "SEL SL",  color=color.red,     linewidth=1, style=plot.style_linebr)
+plot(showSLTP and shortCond ? tp1Sell : na, "SEL TP1", color=color.fuchsia, linewidth=1, style=plot.style_linebr)
+plot(showSLTP and shortCond ? tp2Sell : na, "SEL TP2", color=color.purple,  linewidth=1, style=plot.style_linebr)
+
+bgcolor(longCond  ? color.new(color.lime, 92) : na, title="BUY flash")
+bgcolor(shortCond ? color.new(color.red,  92) : na, title="SELL flash")

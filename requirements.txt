@@ -1,0 +1,31 @@
+# QuantClaw Dependencies
+# Core
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+httpx==0.28.1
+websockets==14.2
+pydantic>=2.12.0
+pydantic-settings>=2.7.1
+
+# Desktop GUI
+PyQt6==6.8.1
+PyQt6-Qt6==6.8.2
+PyQt6-WebEngine==6.8.0
+PyQt6-WebEngine-Qt6==6.8.2
+
+# AI Intelligence
+anthropic==0.52.0
+
+# Hotkeys & System
+pynput==1.8.1
+keyboard==0.13.5
+
+# Security
+cryptography==44.0.0
+
+# Build
+pyinstaller>=6.15.0
+
+# Dev / Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0

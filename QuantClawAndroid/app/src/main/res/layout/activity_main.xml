@@ -1,0 +1,1171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#070a0f"
+    tools:context=".MainActivity">
+
+    <!-- Main Container -->
+    <LinearLayout
+        android:id="@+id/mainLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <!-- Top Header Bar -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="#0d131f"
+            android:paddingHorizontal="16dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="QUANTCLAW"
+                    android:textColor="#ffffff"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_badge_regime"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="2dp"
+                    android:text="MT5 PRO"
+                    android:textColor="#22d3ee"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/headerServerBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="@drawable/bg_badge_neutral"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp"
+                android:text="MT5: DISCONNECTED"
+                android:textColor="#94a3b8"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </RelativeLayout>
+
+        <!-- Quick Live Metrics Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#090d16"
+            android:orientation="horizontal"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="BALANCE"
+                    android:textColor="#64748b"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvHeaderBalance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="$--"
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="EQUITY"
+                    android:textColor="#64748b"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvHeaderEquity"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="$--"
+                    android:textColor="#e2e8f0"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="FLOATING"
+                    android:textColor="#64748b"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvHeaderFloating"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="$0.00"
+                    android:textColor="#94a3b8"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="TODAY P&amp;L"
+                    android:textColor="#64748b"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvHeaderTodayPnL"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="$0.00"
+                    android:textColor="#34d399"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- TabLayout -->
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tabLayout"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:background="#0d131f"
+            app:tabBackground="@color/colorPrimaryDark"
+            app:tabIndicatorColor="#22d3ee"
+            app:tabIndicatorHeight="3dp"
+            app:tabMode="fixed"
+            app:tabSelectedTextColor="#22d3ee"
+            app:tabTextColor="#94a3b8">
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DASHBOARD" />
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CONTROLS" />
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="JOURNAL" />
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="WEB IDE" />
+        </com.google.android.material.tabs.TabLayout>
+
+        <!-- Swipe Refresh Layout -->
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipeRefresh"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+                <!-- 1. DASHBOARD & POSITIONS VIEW -->
+                <androidx.core.widget.NestedScrollView
+                    android:id="@+id/viewDashboard"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:fillViewport="true"
+                    android:visibility="visible">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="14dp">
+
+                        <!-- Main Arm & Flatten Action Buttons -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/btnToggleArm"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_marginEnd="6dp"
+                                android:layout_weight="1.3"
+                                android:background="@drawable/bg_button_rounded"
+                                android:backgroundTint="#10b981"
+                                android:text="🟢 ARM BOT"
+                                android:textColor="#070a0f"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+
+                            <Button
+                                android:id="@+id/btnFlatten"
+                                android:layout_width="0dp"
+                                android:layout_height="48dp"
+                                android:layout_marginStart="6dp"
+                                android:layout_weight="0.9"
+                                android:background="@drawable/bg_button_rounded"
+                                android:backgroundTint="#ef4444"
+                                android:text="⚡ FLATTEN"
+                                android:textColor="#ffffff"
+                                android:textSize="13sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- Decision & Regime HUD -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:background="@drawable/bg_glass_panel"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="ACTIVE REGIME"
+                                        android:textColor="#64748b"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/regimeText"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="3dp"
+                                        android:text="INSTITUTIONAL SMC"
+                                        android:textColor="#22d3ee"
+                                        android:textSize="14sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="ML BRAIN SCORE"
+                                        android:textColor="#64748b"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/decisionScoreText"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginTop="3dp"
+                                        android:text="100.0%"
+                                        android:textColor="#34d399"
+                                        android:textSize="14sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/engineStatusMessage"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:text="24/7 Scanning Active: EURUSD, GBPUSD, USDJPY, XAUUSD, BTCUSD, US30, NAS100"
+                                android:textColor="#94a3b8"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <!-- Open Positions Section Header -->
+                        <RelativeLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="OPEN METATRADER 5 POSITIONS"
+                                android:textColor="#94a3b8"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/posCountBadge"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentEnd="true"
+                                android:background="@drawable/bg_badge_neutral"
+                                android:paddingHorizontal="6dp"
+                                android:paddingVertical="2dp"
+                                android:text="0 Active"
+                                android:textColor="#94a3b8"
+                                android:textSize="10sp" />
+                        </RelativeLayout>
+
+                        <!-- Active Positions RecyclerView -->
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/positionsRecyclerView"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:nestedScrollingEnabled="false" />
+
+                        <!-- Terminal Log Console Header -->
+                        <RelativeLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="24/7 BOT STRATEGY TERMINAL"
+                                android:textColor="#94a3b8"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/btnClearLogs"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentEnd="true"
+                                android:padding="4dp"
+                                android:text="CLEAR"
+                                android:textColor="#38bdf8"
+                                android:textSize="10sp"
+                                android:textStyle="bold" />
+                        </RelativeLayout>
+
+                        <androidx.core.widget.NestedScrollView
+                            android:id="@+id/terminalLogScroll"
+                            android:layout_width="match_parent"
+                            android:layout_height="180dp"
+                            android:layout_marginTop="6dp"
+                            android:background="#03060a"
+                            android:padding="10dp">
+
+                            <TextView
+                                android:id="@+id/terminalLogText"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="monospace"
+                                android:text="[SYSTEM] Connecting to QuantClaw telemetry feed..."
+                                android:textColor="#34d399"
+                                android:textSize="11sp" />
+                        </androidx.core.widget.NestedScrollView>
+
+                    </LinearLayout>
+                </androidx.core.widget.NestedScrollView>
+
+                <!-- 2. BOT CONTROLS & SETTINGS VIEW -->
+                <androidx.core.widget.NestedScrollView
+                    android:id="@+id/viewControls"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:fillViewport="true"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="14dp">
+
+                        <!-- MetaTrader 5 Connection Settings Panel -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="METATRADER 5 TERMINAL CREDENTIALS"
+                            android:textColor="#22d3ee"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_glass_panel"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Account Login Number"
+                                android:textColor="#64748b"
+                                android:textSize="10sp" />
+
+                            <EditText
+                                android:id="@+id/etMt5Login"
+                                android:layout_width="match_parent"
+                                android:layout_height="40dp"
+                                android:layout_marginTop="4dp"
+                                android:background="@drawable/bg_edit_text"
+                                android:hint="e.g. 1126294"
+                                android:inputType="number"
+                                android:paddingHorizontal="10dp"
+                                android:textColor="#ffffff"
+                                android:textColorHint="#475569"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:text="Account Password"
+                                android:textColor="#64748b"
+                                android:textSize="10sp" />
+
+                            <EditText
+                                android:id="@+id/etMt5Password"
+                                android:layout_width="match_parent"
+                                android:layout_height="40dp"
+                                android:layout_marginTop="4dp"
+                                android:background="@drawable/bg_edit_text"
+                                android:hint="Enter MT5 Master Password"
+                                android:inputType="textPassword"
+                                android:paddingHorizontal="10dp"
+                                android:textColor="#ffffff"
+                                android:textColorHint="#475569"
+                                android:textSize="12sp" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:text="Broker Server Name"
+                                android:textColor="#64748b"
+                                android:textSize="10sp" />
+
+                            <EditText
+                                android:id="@+id/etMt5Server"
+                                android:layout_width="match_parent"
+                                android:layout_height="40dp"
+                                android:layout_marginTop="4dp"
+                                android:background="@drawable/bg_edit_text"
+                                android:hint="e.g. FundedFriday-Trade"
+                                android:inputType="text"
+                                android:paddingHorizontal="10dp"
+                                android:textColor="#ffffff"
+                                android:textColorHint="#475569"
+                                android:textSize="12sp" />
+
+                            <Button
+                                android:id="@+id/btnConnectMt5"
+                                android:layout_width="match_parent"
+                                android:layout_height="42dp"
+                                android:layout_marginTop="12dp"
+                                android:background="@drawable/bg_button_rounded"
+                                android:backgroundTint="#2563eb"
+                                android:text="CONNECT METATRADER 5"
+                                android:textColor="#ffffff"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <!-- Autonomous Trading & Strategy Matrix -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:text="24/7 STRATEGY ENGINE MATRIX"
+                            android:textColor="#22d3ee"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_glass_panel"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <androidx.appcompat.widget.SwitchCompat
+                                android:id="@+id/swAutonomousTrading"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Enable Autonomous Auto-Trading"
+                                android:textColor="#ffffff"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:layout_marginVertical="8dp"
+                                android:background="#1e293b" />
+
+                            <androidx.appcompat.widget.SwitchCompat
+                                android:id="@+id/swStrategySMC"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="⚡ SMC Order Blocks &amp; Sweeps"
+                                android:textColor="#e2e8f0"
+                                android:textSize="12sp" />
+
+                            <androidx.appcompat.widget.SwitchCompat
+                                android:id="@+id/swStrategyOCC"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:text="📈 OCC SMMA Trend Momentum"
+                                android:textColor="#e2e8f0"
+                                android:textSize="12sp" />
+
+                            <androidx.appcompat.widget.SwitchCompat
+                                android:id="@+id/swStrategyEyes"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:text="👁️ Eyes SME Smart Structure"
+                                android:textColor="#e2e8f0"
+                                android:textSize="12sp" />
+
+                            <androidx.appcompat.widget.SwitchCompat
+                                android:id="@+id/swStrategyMeanRev"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:text="🔄 Mean Reversion Scalper"
+                                android:textColor="#e2e8f0"
+                                android:textSize="12sp" />
+
+                            <androidx.appcompat.widget.SwitchCompat
+                                android:id="@+id/swStrategyQuantWay"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:text="🌊 Quant Way Multi-Confluence"
+                                android:textColor="#e2e8f0"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <!-- Lot Sizing Manager -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:text="SYMBOL LOT SIZING MANAGER"
+                            android:textColor="#22d3ee"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_glass_panel"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginEnd="6dp"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="EURUSD Lots"
+                                        android:textColor="#64748b"
+                                        android:textSize="10sp" />
+
+                                    <EditText
+                                        android:id="@+id/etQtyEurUsd"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="38dp"
+                                        android:layout_marginTop="4dp"
+                                        android:background="@drawable/bg_edit_text"
+                                        android:hint="0.10"
+                                        android:inputType="numberDecimal"
+                                        android:paddingHorizontal="8dp"
+                                        android:textColor="#ffffff"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="6dp"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="GBPUSD Lots"
+                                        android:textColor="#64748b"
+                                        android:textSize="10sp" />
+
+                                    <EditText
+                                        android:id="@+id/etQtyGbpUsd"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="38dp"
+                                        android:layout_marginTop="4dp"
+                                        android:background="@drawable/bg_edit_text"
+                                        android:hint="0.10"
+                                        android:inputType="numberDecimal"
+                                        android:paddingHorizontal="8dp"
+                                        android:textColor="#ffffff"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginEnd="6dp"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="XAUUSD (Gold) Lots"
+                                        android:textColor="#64748b"
+                                        android:textSize="10sp" />
+
+                                    <EditText
+                                        android:id="@+id/etQtyXauUsd"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="38dp"
+                                        android:layout_marginTop="4dp"
+                                        android:background="@drawable/bg_edit_text"
+                                        android:hint="0.05"
+                                        android:inputType="numberDecimal"
+                                        android:paddingHorizontal="8dp"
+                                        android:textColor="#ffffff"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="6dp"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="BTCUSD (Crypto) Lots"
+                                        android:textColor="#64748b"
+                                        android:textSize="10sp" />
+
+                                    <EditText
+                                        android:id="@+id/etQtyBtcUsd"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="38dp"
+                                        android:layout_marginTop="4dp"
+                                        android:background="@drawable/bg_edit_text"
+                                        android:hint="0.01"
+                                        android:inputType="numberDecimal"
+                                        android:paddingHorizontal="8dp"
+                                        android:textColor="#ffffff"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginEnd="6dp"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="US30 (Dow Jones) Lots"
+                                        android:textColor="#64748b"
+                                        android:textSize="10sp" />
+
+                                    <EditText
+                                        android:id="@+id/etQtyUs30"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="38dp"
+                                        android:layout_marginTop="4dp"
+                                        android:background="@drawable/bg_edit_text"
+                                        android:hint="0.10"
+                                        android:inputType="numberDecimal"
+                                        android:paddingHorizontal="8dp"
+                                        android:textColor="#ffffff"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="6dp"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="NAS100 (Nasdaq) Lots"
+                                        android:textColor="#64748b"
+                                        android:textSize="10sp" />
+
+                                    <EditText
+                                        android:id="@+id/etQtyNas100"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="38dp"
+                                        android:layout_marginTop="4dp"
+                                        android:background="@drawable/bg_edit_text"
+                                        android:hint="0.10"
+                                        android:inputType="numberDecimal"
+                                        android:paddingHorizontal="8dp"
+                                        android:textColor="#ffffff"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- Risk Management & Circuit Breakers -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="16dp"
+                            android:text="RISK MANAGEMENT &amp; CIRCUIT BREAKERS"
+                            android:textColor="#22d3ee"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:background="@drawable/bg_glass_panel"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginEnd="6dp"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Daily Max Loss %"
+                                        android:textColor="#64748b"
+                                        android:textSize="10sp" />
+
+                                    <EditText
+                                        android:id="@+id/etDailyMaxLoss"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="38dp"
+                                        android:layout_marginTop="4dp"
+                                        android:background="@drawable/bg_edit_text"
+                                        android:hint="3.0"
+                                        android:inputType="numberDecimal"
+                                        android:paddingHorizontal="8dp"
+                                        android:textColor="#ffffff"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="6dp"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Weekly Target %"
+                                        android:textColor="#64748b"
+                                        android:textSize="10sp" />
+
+                                    <EditText
+                                        android:id="@+id/etWeeklyTarget"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="38dp"
+                                        android:layout_marginTop="4dp"
+                                        android:background="@drawable/bg_edit_text"
+                                        android:hint="5.0"
+                                        android:inputType="numberDecimal"
+                                        android:paddingHorizontal="8dp"
+                                        android:textColor="#ffffff"
+                                        android:textSize="12sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <androidx.appcompat.widget.SwitchCompat
+                                android:id="@+id/swBreakevenTrigger"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="10dp"
+                                android:text="Auto Breakeven Stop Loss"
+                                android:textColor="#e2e8f0"
+                                android:textSize="12sp" />
+
+                            <androidx.appcompat.widget.SwitchCompat
+                                android:id="@+id/swPartialTP"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:text="50% Partial Take-Profit"
+                                android:textColor="#e2e8f0"
+                                android:textSize="12sp" />
+
+                            <androidx.appcompat.widget.SwitchCompat
+                                android:id="@+id/swTrailingStop"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:text="Dynamic ATR Trailing Stop"
+                                android:textColor="#e2e8f0"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <!-- Save Settings Button -->
+                        <Button
+                            android:id="@+id/btnSaveSettings"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:layout_marginTop="16dp"
+                            android:layout_marginBottom="24dp"
+                            android:background="@drawable/bg_button_rounded"
+                            android:backgroundTint="#059669"
+                            android:text="💾 SAVE ALL BOT SETTINGS"
+                            android:textColor="#ffffff"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+                </androidx.core.widget.NestedScrollView>
+
+                <!-- 3. P&L RECORDS & JOURNAL VIEW -->
+                <LinearLayout
+                    android:id="@+id/viewJournal"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:padding="14dp"
+                    android:visibility="gone">
+
+                    <!-- Stats Cards Grid -->
+                    <GridLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:columnCount="2"
+                        android:rowCount="2">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_columnWeight="1"
+                            android:layout_rowWeight="1"
+                            android:layout_margin="3dp"
+                            android:background="@drawable/bg_glass_panel"
+                            android:orientation="vertical"
+                            android:padding="10dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="CUMULATIVE P&amp;L"
+                                android:textColor="#64748b"
+                                android:textSize="9sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/statsPnl"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="$0.00"
+                                android:textColor="#e2e8f0"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_columnWeight="1"
+                            android:layout_rowWeight="1"
+                            android:layout_margin="3dp"
+                            android:background="@drawable/bg_glass_panel"
+                            android:orientation="vertical"
+                            android:padding="10dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="WIN RATE"
+                                android:textColor="#64748b"
+                                android:textSize="9sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/statsWinRate"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="0.0%"
+                                android:textColor="#34d399"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_columnWeight="1"
+                            android:layout_rowWeight="1"
+                            android:layout_margin="3dp"
+                            android:background="@drawable/bg_glass_panel"
+                            android:orientation="vertical"
+                            android:padding="10dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="PROFIT FACTOR"
+                                android:textColor="#64748b"
+                                android:textSize="9sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/statsProfitFactor"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="1.00"
+                                android:textColor="#22d3ee"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_columnWeight="1"
+                            android:layout_rowWeight="1"
+                            android:layout_margin="3dp"
+                            android:background="@drawable/bg_glass_panel"
+                            android:orientation="vertical"
+                            android:padding="10dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="TOTAL TRADES"
+                                android:textColor="#64748b"
+                                android:textSize="9sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/statsTotalTrades"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="0"
+                                android:textColor="#818cf8"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </GridLayout>
+
+                    <!-- Completed Trades History Header -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:text="CLOSED MT5 DEAL JOURNAL"
+                        android:textColor="#94a3b8"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <!-- Completed Trades RecyclerView -->
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/tradesRecyclerView"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_marginTop="6dp" />
+
+                </LinearLayout>
+
+                <!-- 4. WEB WORKSPACE VIEW -->
+                <WebView
+                    android:id="@+id/tvWorkspaceWebView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone" />
+
+            </FrameLayout>
+
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    </LinearLayout>
+
+    <!-- Login/Config Overlay -->
+    <LinearLayout
+        android:id="@+id/loginOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#070a0f"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="28dp"
+        android:visibility="visible"
+        tools:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="QUANTCLAW MT5"
+            android:textColor="#ffffff"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Autonomous Trading Telemetry &amp; Remote Control"
+            android:textColor="#64748b"
+            android:textSize="11sp" />
+
+        <EditText
+            android:id="@+id/etServerUrl"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/bg_edit_text"
+            android:hint="Server URL (e.g. https://control.dilulabs.space/lasthopepanel)"
+            android:inputType="textUri"
+            android:paddingHorizontal="14dp"
+            android:textColor="#ffffff"
+            android:textColorHint="#475569"
+            android:textSize="12sp" />
+
+        <EditText
+            android:id="@+id/etSecurityToken"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_edit_text"
+            android:hint="Webhook Security Token (Optional)"
+            android:inputType="textPassword"
+            android:paddingHorizontal="14dp"
+            android:textColor="#ffffff"
+            android:textColorHint="#475569"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/btnConnect"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="20dp"
+            android:background="@drawable/bg_button_rounded"
+            android:backgroundTint="#0ea5e9"
+            android:text="CONNECT TO BOT"
+            android:textColor="#ffffff"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+</RelativeLayout>

@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="6dp">
+
+    <!-- Top Action bar: Title and controls -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingBottom="2dp">
+
+        <TextView
+            android:id="@+id/notifTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:text="QUANTCLAW GUARDIAN"
+            android:textColor="#ffffff"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <!-- Control buttons on right -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/notifBtnToggleArm"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="72dp"
+                android:layout_height="28dp"
+                android:layout_marginEnd="6dp"
+                android:background="#1f2937"
+                android:text="TOGGLE"
+                android:textColor="#22d3ee"
+                android:textSize="8sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/notifBtnFlatten"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="72dp"
+                android:layout_height="28dp"
+                android:background="#ef4444"
+                android:text="FLATTEN"
+                android:textColor="#ffffff"
+                android:textSize="8sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </RelativeLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="3dp"
+        android:background="#1e293b" />
+
+    <!-- Bot Telemetry & Status Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingVertical="1dp">
+
+        <TextView
+            android:id="@+id/notifSessionPnL"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="PnL: +$0.00"
+            android:textColor="#34d399"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/notifTotalTrades"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="Trades: 0"
+            android:textColor="#94a3b8"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/notifRegime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="Regime: NONE"
+            android:textColor="#22d3ee"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Latest system status message log -->
+    <TextView
+        android:id="@+id/notifStatusMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="System Initialized. Awaiting market signal..."
+        android:textColor="#64748b"
+        android:textSize="8sp" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="3dp"
+        android:background="#1e293b" />
+
+    <!-- Awaiting signal text if empty -->
+    <TextView
+        android:id="@+id/notifEmptyText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginVertical="12dp"
+        android:gravity="center"
+        android:text="No active bot positions. Scanning market..."
+        android:textColor="#64748b"
+        android:textSize="10sp"
+        android:textStyle="italic"
+        android:visibility="visible" />
+
+    <!-- POSITIONS HUDs (Show up to 3) -->
+    <LinearLayout
+        android:id="@+id/notifPositionsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Position 1 -->
+        <LinearLayout
+            android:id="@+id/notifPos1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="3dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:id="@+id/notifSymbol1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="BTCUSD.P"
+                    android:textColor="#ffffff"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/notifSide1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_toEndOf="@id/notifSymbol1"
+                    android:text="LONG"
+                    android:textColor="#34d399"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/notifBias1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_toEndOf="@id/notifSide1"
+                    android:text="BIAS: +0.42"
+                    android:textColor="#38bdf8"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/notifPnL1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:text="+0.45% (+$22.50)"
+                    android:textColor="#34d399"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp">
+
+                <TextView
+                    android:id="@+id/notifSL1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SL: $65k"
+                    android:textColor="#f87171"
+                    android:textSize="8sp" />
+
+                <TextView
+                    android:id="@+id/notifMark1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerHorizontal="true"
+                    android:text="Mark: $65,580"
+                    android:textColor="#94a3b8"
+                    android:textSize="8sp" />
+
+                <TextView
+                    android:id="@+id/notifTP1"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:text="TP: $66k"
+                    android:textColor="#34d399"
+                    android:textSize="8sp" />
+            </RelativeLayout>
+
+            <ProgressBar
+                android:id="@+id/notifProgressBar1"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:layout_marginTop="2dp"
+                android:max="100"
+                android:progress="60" />
+        </LinearLayout>
+
+        <!-- Position 2 -->
+        <LinearLayout
+            android:id="@+id/notifPos2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="3dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:id="@+id/notifSymbol2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="ETHUSD.P"
+                    android:textColor="#ffffff"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/notifSide2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_toEndOf="@id/notifSymbol2"
+                    android:text="SHORT"
+                    android:textColor="#f87171"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/notifBias2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_toEndOf="@id/notifSide2"
+                    android:text="BIAS: -0.30"
+                    android:textColor="#38bdf8"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/notifPnL2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:text="-0.15% (-$4.50)"
+                    android:textColor="#f87171"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp">
+
+                <TextView
+                    android:id="@+id/notifSL2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SL: $3.5k"
+                    android:textColor="#f87171"
+                    android:textSize="8sp" />
+
+                <TextView
+                    android:id="@+id/notifMark2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerHorizontal="true"
+                    android:text="Mark: $3,450"
+                    android:textColor="#94a3b8"
+                    android:textSize="8sp" />
+
+                <TextView
+                    android:id="@+id/notifTP2"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:text="TP: $3.3k"
+                    android:textColor="#34d399"
+                    android:textSize="8sp" />
+            </RelativeLayout>
+
+            <ProgressBar
+                android:id="@+id/notifProgressBar2"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:layout_marginTop="2dp"
+                android:max="100"
+                android:progress="60" />
+        </LinearLayout>
+
+        <!-- Position 3 -->
+        <LinearLayout
+            android:id="@+id/notifPos3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginVertical="3dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <TextView
+                    android:id="@+id/notifSymbol3"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SOLUSD.P"
+                    android:textColor="#ffffff"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/notifSide3"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_toEndOf="@id/notifSymbol3"
+                    android:text="LONG"
+                    android:textColor="#34d399"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/notifBias3"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_toEndOf="@id/notifSide3"
+                    android:text="BIAS: +0.65"
+                    android:textColor="#38bdf8"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/notifPnL3"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:text="+1.85% (+$92.50)"
+                    android:textColor="#34d399"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp">
+
+                <TextView
+                    android:id="@+id/notifSL3"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SL: $140"
+                    android:textColor="#f87171"
+                    android:textSize="8sp" />
+
+                <TextView
+                    android:id="@+id/notifMark3"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerHorizontal="true"
+                    android:text="Mark: $142.50"
+                    android:textColor="#94a3b8"
+                    android:textSize="8sp" />
+
+                <TextView
+                    android:id="@+id/notifTP3"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:text="TP: $148"
+                    android:textColor="#34d399"
+                    android:textSize="8sp" />
+            </RelativeLayout>
+
+            <ProgressBar
+                android:id="@+id/notifProgressBar3"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:layout_marginTop="2dp"
+                android:max="100"
+                android:progress="60" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>
