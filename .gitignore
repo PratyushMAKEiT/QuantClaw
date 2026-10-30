@@ -10,6 +10,7 @@ __pycache__/
 # Distribution / packaging
 build/
 dist/
+dist_new/
 *.manifest
 *.spec
 !quantclaw.spec
