@@ -215,6 +215,10 @@ class StrategyEngine:
 
         # 3. Liquidity Sweep & Displacement Detection
         lookback = int(getattr(self.config, "titan_pro_swing_lookback", 15))
+        if hasattr(self, "strategy_tester") and self.strategy_tester:
+            tuned = self.strategy_tester.get_optimal_params(symbol, "titan_pro")
+            if tuned:
+                lookback = int(tuned.get("lookback") or tuned.get("swing_lookback", lookback))
         lookback = min(lookback, len(candles) - 3)
         if lookback < 5:
             return None
@@ -290,6 +294,10 @@ class StrategyEngine:
         # 4. Entry, SL, and TP Calculation (High RR: 1:2.8)
         entry_price = last_close
         rr = float(getattr(self.config, "titan_pro_rr_ratio", 2.8))
+        if hasattr(self, "strategy_tester") and self.strategy_tester:
+            tuned = self.strategy_tester.get_optimal_params(symbol, "titan_pro")
+            if tuned:
+                rr = float(tuned.get("rr") or tuned.get("rr_ratio") or tuned.get("target_rr", rr))
         min_sl = max(0.35 * atr, 1e-4)
 
         if action == "buy":

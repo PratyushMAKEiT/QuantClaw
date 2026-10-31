@@ -225,6 +225,7 @@ class QuantClawMT5App:
 
             # 8b. Autonomous Strategy Tester & Live Thinking Brain
             self.strategy_tester = StrategyTester(config=self.config, mt5_client=self.mt5, market_engine=self.market)
+            self.strategy.strategy_tester = self.strategy_tester
             self.thinking = MarketThinkingEngine(config=self.config, market_engine=self.market, risk_manager=self.risk, mt5_client=self.mt5)
 
             # 9. FastAPI Telemetry Server
@@ -428,15 +429,24 @@ class QuantClawMT5App:
                     while True:
                         try:
                             if getattr(self.config, 'enable_strategy_tester_autotune', True) and symbols:
-                                test_sym = symbols[0]
-                                logger.info(f"[STRATEGY TESTER] Autonomous permutation optimization triggered for {test_sym}...")
-                                res = await asyncio.to_thread(self.strategy_tester.run_permutation_optimizer, test_sym, "M15", 300)
-                                best = res.get("best_permutation")
-                                if best:
-                                    logger.info(
-                                        f"[STRATEGY TESTER OPTIMIZER] Optimal params tuned for {test_sym}: "
-                                        f"Lookback={best.get('lookback')}, R:R={best.get('rr')}, Expectancy={best.get('expectancy')}R, WinRate={best.get('win_rate')}%"
-                                    )
+                                for test_sym in symbols[:5]:
+                                    if not self.config.is_symbol_enabled(test_sym):
+                                        continue
+                                    res = await asyncio.to_thread(self.strategy_tester.run_permutation_optimizer, test_sym, "M15", 300)
+                                    best = res.get("best_permutation")
+                                    if best and best.get("expectancy", 0) > 0.1:
+                                        optimal_lookback = best.get("lookback")
+                                        optimal_rr = best.get("rr")
+                                        logger.info(
+                                            f"[AUTONOMOUS AUTO-TUNE] Applied optimal parameters for {test_sym}: "
+                                            f"Lookback={optimal_lookback}, Target R:R={optimal_rr}R, Expectancy=+{best.get('expectancy')}R, WinRate={best.get('win_rate')}%, PF={best.get('profit_factor')}"
+                                        )
+                                        if test_sym == symbols[0]:
+                                            self.config.titan_pro_swing_lookback = optimal_lookback
+                                            self.config.titan_pro_rr_ratio = optimal_rr
+                                            if getattr(self.config, 'stepped_trail_auto_mode', True):
+                                                self.config.stepped_trail_zone3_r = optimal_rr
+                                            self.config.save_to_json()
                         except Exception as e:
                             logger.debug(f"Strategy tester background error: {e}")
                         await asyncio.sleep(1800)

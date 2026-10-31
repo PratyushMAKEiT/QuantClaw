@@ -381,6 +381,16 @@ class StrategyTester:
         )
         return summary
 
+    def get_optimal_params(self, symbol: str, strategy: str = "titan_pro") -> Optional[Dict[str, Any]]:
+        """Get autonomously tuned parameters for a specific symbol & strategy."""
+        key = f"{symbol.upper()}:{strategy}"
+        if key in self._optimal_params:
+            return self._optimal_params[key].get("best_params") or self._optimal_params[key].get("best_permutation")
+        for k, v in self._optimal_params.items():
+            if k.startswith(f"{symbol.upper()}:"):
+                return v.get("best_params") or v.get("best_permutation")
+        return None
+
     def get_latest_results(self) -> Dict[str, Any]:
         """Return cached results of all simulation and optimization runs."""
         return {
