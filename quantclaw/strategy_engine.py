@@ -332,6 +332,7 @@ class StrategyEngine:
             sl_points=sl_points,
             tp_points=tp_points,
             strength=min(98.0, strength),
+            invalidation_price=sweep_level,
             metadata={
                 "htf_trend": "BULLISH" if action == "buy" else "BEARISH",
                 "sweep_level": sweep_level,
@@ -411,6 +412,7 @@ class StrategyEngine:
             sl_points=sl_points,
             tp_points=tp_points,
             strength=strength,
+            invalidation_price=setup["sweep_price"],
             metadata={
                 "setup_type": setup["setup_type"],
                 "sweep_price": setup["sweep_price"],

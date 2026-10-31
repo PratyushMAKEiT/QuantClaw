@@ -187,6 +187,7 @@ class StrategySignal(BaseModel):
     sl_points: float = 0.0
     tp_points: float = 0.0
     strength: float = 50.0  # 0 to 100
+    invalidation_price: Optional[float] = None
     timestamp: float = Field(default_factory=time.time)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
@@ -201,6 +202,8 @@ class TradeDecision(BaseModel):
     entry_price: float
     sl_price: float
     tp_price: float
+    invalidation_price: Optional[float] = None
+    expectancy_score: Optional[float] = None
     regime: RiskRegime = RiskRegime.BETA
     ml_score: float = 0.0
     confluence_count: int = 0   # Fixed: was 1, making single signals appear confirmed

@@ -656,6 +656,11 @@ def create_app(
             "enable_constant_trailing": getattr(cfg, "enable_constant_trailing", True),
             "enable_auto_pilot_tuning": getattr(cfg, "enable_auto_pilot_tuning", True),
             "enable_strategy_tester_autotune": getattr(cfg, "enable_strategy_tester_autotune", True),
+            "enable_early_invalidation_cut": getattr(cfg, "enable_early_invalidation_cut", True),
+            "invalidation_cut_min_r": getattr(cfg, "invalidation_cut_min_r", -0.30),
+            "enable_expectancy_adaptive_sizing": getattr(cfg, "enable_expectancy_adaptive_sizing", True),
+            "enable_weekend_gap_shield": getattr(cfg, "enable_weekend_gap_shield", False),
+            "friday_close_cutoff_hour_utc": getattr(cfg, "friday_close_cutoff_hour_utc", 20),
             "server_port": cfg.server_port,
         }
 
@@ -709,7 +714,7 @@ def create_app(
             'enable_partial_take_profit', 'enable_partial_tp', 'partial_tp_ratio', 'partial_tp_close_pct',
             'enable_early_breakeven', 'early_breakeven_r_ratio', 'enable_soft_risk_reduction', 'soft_risk_reduction_r', 'soft_risk_target_r', 'commission_max_pct_of_tp',
             'enable_volume_regime_intelligence', 'volume_adaptive_tp', 'enable_stepped_trailing',
-            'stepped_trail_zone1_r', 'stepped_trail_zone2_r', 'stepped_trail_zone3_r', 'stepped_trail_zone4_r', 'stepped_trail_zone5_r', 'stepped_trail_auto_mode', 'enable_constant_trailing', 'enable_auto_pilot_tuning', 'enable_strategy_tester_autotune',
+            'stepped_trail_zone1_r', 'stepped_trail_zone2_r', 'stepped_trail_zone3_r', 'stepped_trail_zone4_r', 'stepped_trail_zone5_r', 'stepped_trail_auto_mode', 'enable_constant_trailing', 'enable_auto_pilot_tuning', 'enable_strategy_tester_autotune', 'enable_early_invalidation_cut', 'invalidation_cut_min_r', 'enable_expectancy_adaptive_sizing', 'enable_weekend_gap_shield', 'friday_close_cutoff_hour_utc',
             'enable_breakeven_trigger', 'enable_breakeven', 'breakeven_r_ratio',
             'enable_trailing_stop', 'trailing_stop_atr_mult', 'max_concurrent_positions',
             'daily_max_loss_pct', 'weekly_profit_target_pct', 'max_consecutive_losses',

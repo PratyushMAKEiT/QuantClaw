@@ -118,6 +118,18 @@ class TradeJournal:
                 conn.execute("ALTER TABLE trades ADD COLUMN rr_achieved REAL DEFAULT 0.0")
             except Exception:
                 pass
+            try:
+                conn.execute("ALTER TABLE trades ADD COLUMN outcome_tag TEXT DEFAULT ''")
+            except Exception:
+                pass
+            try:
+                conn.execute("ALTER TABLE trades ADD COLUMN review_notes TEXT DEFAULT ''")
+            except Exception:
+                pass
+            try:
+                conn.execute("ALTER TABLE trades ADD COLUMN invalidation_price REAL DEFAULT 0.0")
+            except Exception:
+                pass
 
             # Backfill strategy names from trade_events if trades table contains regime comments (e.g. 'QuantClaw [BETA]')
             try:
@@ -180,17 +192,19 @@ class TradeJournal:
         close_price: float,
         pnl_usd: float,
         outcome: str = "win",
+        outcome_tag: str = "",
+        review_notes: str = "",
     ) -> None:
-        """Update closed MT5 position with final P&L."""
+        """Update closed MT5 position with final P&L, outcome tag, and review classification."""
         try:
             with self._get_conn() as conn:
                 conn.execute(
                     """
                     UPDATE trades 
-                    SET close_price = ?, pnl_usd = ?, outcome = ?, close_time = ?
+                    SET close_price = ?, pnl_usd = ?, outcome = ?, outcome_tag = ?, review_notes = ?, close_time = ?
                     WHERE ticket = ?
                     """,
-                    (close_price, pnl_usd, outcome, time.time(), ticket),
+                    (close_price, pnl_usd, outcome, outcome_tag, review_notes, time.time(), ticket),
                 )
         except Exception as e:
             logger.debug(f"Error recording trade close: {e}")

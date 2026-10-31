@@ -191,6 +191,17 @@ class RiskManager:
                 logger.warning(msg)
                 return False, msg
 
+        # 1d. Weekend Gap Shield: Block new orders on Friday after cutoff hour to avoid Sunday gap risk (Forex/Indices only)
+        is_crypto = any(c in sym.upper() for c in ["BTC", "ETH", "SOL", "XRP", "CRYPTO"])
+        if getattr(self.config, "enable_weekend_gap_shield", False) and not is_crypto and not getattr(self.config, "testing", False):
+            import datetime
+            now_utc = datetime.datetime.now(datetime.timezone.utc)
+            cutoff_h = int(getattr(self.config, "friday_close_cutoff_hour_utc", 20))
+            if (now_utc.weekday() == 4 and now_utc.hour >= cutoff_h) or now_utc.weekday() in (5, 6):
+                msg = f"Weekend Gap Shield active (UTC Friday >={cutoff_h}:00 or weekend) - blocking new market order on {sym}"
+                logger.warning(f"🛡️ [WEEKEND GAP SHIELD] {msg}")
+                return False, msg
+
         # Session & Calendar Gate — skip new entries during poor sessions
         if getattr(self.config, 'enable_session_filter', True):
             session_score = self._calendar.get_session_score(decision.symbol)
@@ -264,6 +275,22 @@ class RiskManager:
         else:
             calc_risk = equity * (risk_pct / 100.0)
             target_risk_usd = min(max_risk_cap, max(min_risk_floor, calc_risk))
+
+        # Expectancy-Adaptive Sizing (Fractional Kelly scaling from Strategy Tester)
+        if getattr(self.config, "enable_expectancy_adaptive_sizing", True) and hasattr(self, "strategy_tester") and self.strategy_tester:
+            try:
+                tuned = self.strategy_tester.get_optimal_params(sym, decision.strategy)
+                if tuned:
+                    exp_val = float(tuned.get("expectancy", 0.0))
+                    pf_val = float(tuned.get("profit_factor", 1.0))
+                    if exp_val >= 0.70 and pf_val >= 1.80:
+                        target_risk_usd = min(max_risk_cap * 1.25, target_risk_usd * 1.25)
+                        logger.info(f"⚡ [EXPECTANCY SIZING] Scaled risk up 1.25x (${target_risk_usd:.2f}) on {sym} (E={exp_val:.2f}R, PF={pf_val:.2f})")
+                    elif exp_val <= 0.20 or pf_val < 1.10:
+                        target_risk_usd = max(min_risk_floor, target_risk_usd * 0.50)
+                        logger.info(f"🛡️ [EXPECTANCY SIZING] Scaled risk down 0.50x (${target_risk_usd:.2f}) on {sym} (E={exp_val:.2f}R, PF={pf_val:.2f})")
+            except Exception as e:
+                logger.debug(f"Expectancy sizing error: {e}")
 
         step = sym_info.volume_step if sym_info.volume_step > 0 else 0.01
         step_decimals = max(0, -math.floor(math.log10(step))) if 0 < step < 1 else 0
@@ -384,6 +411,7 @@ class RiskManager:
                 "last_seen_tp": decision.tp_price,
                 "manual_intervention": False,
                 "sl_distance": abs(entry_price - decision.sl_price),
+                "invalidation_price": getattr(decision, "invalidation_price", 0.0) or 0.0,
                 "breakeven_done": False,
                 "partial_tp_done": False,
                 "regime": decision.regime.value,
@@ -506,9 +534,35 @@ class RiskManager:
                 with self._positions_lock:
                     self._consecutive_losses = 0
 
+            # Determine outcome classification tag
+            if m.get("struct_cut_done"):
+                outcome_tag = "STRUCTURE_INVALIDATED"
+                review_notes = "Early loss cut on market structure break (~50% risk saved)"
+            elif m.get("weekend_closed"):
+                outcome_tag = "WEEKEND_GAP_SHIELD"
+                review_notes = "Defensive exit before Friday close to avoid weekend gap"
+            elif m.get("breakeven_done") and abs(pnl_usd) <= max(1.5, abs(m.get("sl_distance", 0.01) * 0.25)):
+                outcome_tag = "BREAKEVEN_DEFENSE"
+                review_notes = "Capital protected at breakeven + buffer"
+            elif m.get("zone3_done") or m.get("partial_tp_done"):
+                outcome_tag = "SWEET_SPOT_BANKED"
+                review_notes = "Secured Zone partial profits + trailing gain banked"
+            elif pnl_usd > 0 and (close_price >= m.get("initial_tp", 0.0) if m.get("action", "").upper() == "BUY" else close_price <= m.get("initial_tp", 0.0) and m.get("initial_tp", 0.0) > 0):
+                outcome_tag = "SWEEP_EXPANSION"
+                review_notes = "Full TP expansion reached on institutional sweep"
+            elif pnl_usd > 0:
+                outcome_tag = "PROFIT_TARGET"
+                review_notes = "Positive profit target achieved"
+            elif pnl_usd < 0:
+                outcome_tag = "FULL_SL_HIT"
+                review_notes = "Hard stop loss reached"
+            else:
+                outcome_tag = "STANDARD_CLOSE"
+                review_notes = "Standard position closure"
+
             # FIX: Move blocking SQLite/ML calls to thread pool (don't block async event loop)
             if self.journal:
-                await asyncio.to_thread(self.journal.record_close_trade, t, close_price, pnl_usd, outcome)
+                await asyncio.to_thread(self.journal.record_close_trade, t, close_price, pnl_usd, outcome, outcome_tag, review_notes)
             if self.ml_engine:
                 await asyncio.to_thread(
                     self.ml_engine.record_trade_outcome,
@@ -988,32 +1042,68 @@ class RiskManager:
                                 )
                             except Exception: pass
 
-            # D. Active Structural Invalidation Guardian (Early Loss Mitigation)
-            # Only trigger when deep in loss (r_multiple <= -0.75) AND confirmed structure shift
-            if r_multiple <= -0.75 and self.market_engine:
-                try:
-                    m15_c = self.market_engine.get_candles(sym, "M15", 30)
-                    if len(m15_c) >= 20:
-                        from quantclaw.utils.smc_analysis import detect_bos_choch
-                        choch = detect_bos_choch(m15_c, lookback=15)
-                        is_adverse = (is_buy and choch["type"] == "CHOCH_BEAR") or (not is_buy and choch["type"] == "CHOCH_BULL")
-                        if is_adverse:
-                            logger.warning(
-                                f"🛡️ [STRUCTURAL INVALIDATION] Cutting deep drawdown on #{ticket} {sym}: "
-                                f"Adverse {choch['type']} at {choch['price']} while at {r_multiple:.2f}R drawdown."
+            # Weekend Gap Shield: Move open profit positions (R >= 0.30) to Breakeven on Friday evening
+            is_crypto = any(c in sym.upper() for c in ["BTC", "ETH", "SOL", "XRP", "CRYPTO"])
+            if getattr(self.config, "enable_weekend_gap_shield", False) and not is_crypto and not managed.get("breakeven_done") and not getattr(self.config, "testing", False):
+                import datetime
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                cutoff_h = int(getattr(self.config, "friday_close_cutoff_hour_utc", 20))
+                if (now_utc.weekday() == 4 and now_utc.hour >= cutoff_h) or now_utc.weekday() in (5, 6):
+                    if r_multiple >= 0.30:
+                        be_price = round(entry_price + be_offset, dg) if is_buy else round(entry_price - be_offset, dg)
+                        try:
+                            succ, _ = await asyncio.wait_for(
+                                asyncio.to_thread(self.mt5.modify_position, ticket, be_price, pos.get("tp", 0.0)),
+                                timeout=10.0
                             )
-                            await asyncio.to_thread(self.mt5.close_position, ticket, float(pos.get("volume", 0.01)))
-                            if self.journal:
-                                try:
-                                    await asyncio.to_thread(
-                                        self.journal.log_trade_event,
-                                        ticket, sym, 'STRUCTURAL_EXIT', cur_price, r_multiple,
-                                        {'choch_type': choch['type'], 'choch_price': choch['price']}
-                                    )
-                                except Exception:
-                                    pass
-                except Exception as struct_err:
-                    logger.debug(f"Structural guardian error: {struct_err}")
+                            if succ:
+                                managed["breakeven_done"] = True
+                                managed["current_sl"] = be_price
+                                managed["last_seen_sl"] = be_price
+                                logger.info(f"🛡️ [WEEKEND GAP SHIELD] Secured Breakeven for #{ticket} {sym} @ {be_price} before Friday close")
+                        except Exception:
+                            pass
+
+            # D. Active Dynamic Structural Invalidation Guardian (Early Loss Mitigation)
+            enable_early_cut = getattr(self.config, "enable_early_invalidation_cut", True)
+            min_cut_r = float(getattr(self.config, "invalidation_cut_min_r", -0.30))
+            if enable_early_cut and r_multiple <= min_cut_r:
+                inv_price = float(managed.get("invalidation_price", 0.0))
+                price_invalidated = False
+                if inv_price > 0:
+                    if is_buy and cur_price < inv_price:
+                        price_invalidated = True
+                    elif not is_buy and cur_price > inv_price:
+                        price_invalidated = True
+
+                choch_invalidated = False
+                if not price_invalidated and self.market_engine:
+                    try:
+                        m15_c = self.market_engine.get_candles(sym, "M15", 30)
+                        if len(m15_c) >= 20:
+                            from quantclaw.utils.smc_analysis import detect_bos_choch
+                            choch = detect_bos_choch(m15_c, lookback=15)
+                            if (is_buy and choch["type"] == "CHOCH_BEAR") or (not is_buy and choch["type"] == "CHOCH_BULL"):
+                                choch_invalidated = True
+                    except Exception:
+                        pass
+
+                if price_invalidated or choch_invalidated:
+                    reason_str = f"invalidation level {inv_price:.5f} breached" if price_invalidated else "adverse market structure shift"
+                    logger.warning(
+                        f"🛡️ [EARLY INVALIDATION CUT] Closing #{ticket} {sym} @ {cur_price:.5f} (R={r_multiple:.2f}): {reason_str}. Preserved remaining risk capital!"
+                    )
+                    await asyncio.to_thread(self.mt5.close_position, ticket, float(pos.get("volume", 0.01)))
+                    managed["struct_cut_done"] = True
+                    if self.journal:
+                        try:
+                            await asyncio.to_thread(
+                                self.journal.log_trade_event,
+                                ticket, sym, 'EARLY_INVALIDATION_CUT', cur_price, r_multiple,
+                                {'reason': reason_str, 'inv_price': inv_price, 'r': r_multiple}
+                            )
+                        except Exception:
+                            pass
 
             # E. Swap Fee Guardian — Check every 15 minutes near rollover
             now_ts = time.time()

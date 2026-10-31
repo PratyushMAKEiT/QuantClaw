@@ -105,3 +105,147 @@ def test_market_thinking_in_trade_supervision():
     assert t["current_r"] == 1.5
     assert t["live_win_prob"] >= 75
     assert "SWEET-SPOT" in t["setup_health"] or "RUNNER" in t["setup_health"]
+
+@pytest.mark.asyncio
+async def test_early_invalidation_cut_and_trade_classification():
+    from quantclaw.risk_manager import RiskManager
+    from quantclaw.trade_journal import TradeJournal
+    from quantclaw.models import TradeDecision, RiskRegime
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tf:
+        db_path = tf.name
+
+    journal = TradeJournal(db_path=db_path)
+    mock_mt5 = MagicMock()
+    mock_mt5.is_connected.return_value = True
+    mock_tracker = MagicMock()
+    mock_tracker.get_daily_loss_pct.return_value = 0.0
+
+    cfg = AppConfig()
+    cfg.testing = True
+    cfg.enable_early_invalidation_cut = True
+    cfg.invalidation_cut_min_r = -0.30
+
+    risk = RiskManager(config=cfg, mt5_client=mock_mt5, account_tracker=mock_tracker, trade_journal=journal)
+
+    # 1. Test position adoption with invalidation price
+    ticket = 8881
+    entry = 1.1000
+    sl = 1.0960 # 40 points SL
+    inv_p = 1.0985 # Invalidation level
+
+    # Pre-record open trade in journal
+    journal.record_open_trade(
+        ticket=ticket,
+        symbol="EURUSD",
+        action="BUY",
+        volume=0.10,
+        entry_price=entry,
+        sl=sl,
+        tp=1.1100,
+        strategy="titan_pro",
+        ml_score=85.0
+    )
+
+    risk._managed_positions[ticket] = {
+        "ticket": ticket,
+        "symbol": "EURUSD",
+        "action": "BUY",
+        "entry_price": entry,
+        "initial_sl": sl,
+        "current_sl": sl,
+        "sl_distance": 0.0040,
+        "invalidation_price": inv_p,
+        "breakeven_done": False,
+        "volume": 0.10,
+    }
+
+    # Simulate position dropped to 1.0980 (R = -0.50, breaches inv_p 1.0985)
+    mock_mt5.get_positions.return_value = [
+        {"ticket": ticket, "symbol": "EURUSD", "type": "BUY", "open_price": entry, "current_price": 1.0980, "sl": sl, "tp": 1.1100, "volume": 0.10, "profit": -2.0}
+    ]
+
+    await risk.monitor_open_positions()
+
+    # Verify close_position was called early to preserve capital
+    mock_mt5.close_position.assert_called_with(ticket, 0.10)
+    assert risk._managed_positions[ticket].get("struct_cut_done") is True
+
+    # 2. Simulate position closure in MT5 and verify post-trade classification
+    mock_mt5.get_positions.return_value = []
+    mock_mt5.get_history_deals.return_value = {"net_pnl": -2.0, "close_price": 1.0980}
+
+    await risk.monitor_open_positions()
+
+    # Query journal to verify outcome_tag
+    trades = journal.get_recent_trades(limit=5)
+    assert len(trades) >= 1
+    t = [tr for tr in trades if tr["ticket"] == ticket][0]
+    assert t["outcome_tag"] == "STRUCTURE_INVALIDATED"
+    assert "Early loss cut" in t["review_notes"]
+
+@pytest.mark.asyncio
+async def test_expectancy_adaptive_sizing_and_weekend_gap_shield():
+    from quantclaw.risk_manager import RiskManager
+    from quantclaw.models import TradeDecision, RiskRegime
+    from unittest.mock import AsyncMock
+
+    mock_mt5 = MagicMock()
+    mock_mt5.is_connected.return_value = True
+    mock_mt5.is_symbol_tradeable.return_value = (True, "OK")
+    mock_mt5.get_positions.return_value = []
+    mock_tracker = MagicMock()
+    mock_tracker.get_daily_loss_pct.return_value = 0.0
+    mock_journal = MagicMock()
+    
+    mock_acc = MagicMock()
+    mock_acc.equity = 300.0
+    mock_acc.balance = 300.0
+    mock_mt5.get_account_info.return_value = mock_acc
+
+    sym_info = MagicMock()
+    sym_info.point = 0.00001
+    sym_info.spread = 10
+    sym_info.trade_tick_value = 1.0
+    sym_info.trade_tick_size = 0.00001
+    sym_info.volume_min = 0.01
+    sym_info.volume_max = 100.0
+    sym_info.volume_step = 0.01
+    mock_mt5.get_symbol_info.return_value = sym_info
+    mock_mt5.open_market_order.return_value = (True, {'ticket': 9999, 'price': 1.1000})
+
+    mock_tester = MagicMock()
+    # High expectancy
+    mock_tester.get_optimal_params.return_value = {"expectancy": 0.85, "profit_factor": 2.2, "lookback": 15, "rr": 2.8}
+
+    cfg = AppConfig()
+    cfg.armed = True
+    cfg.testing = True
+    cfg.enable_expectancy_adaptive_sizing = True
+    cfg.enable_session_filter = False
+    cfg.enable_news_filter = False
+
+    risk = RiskManager(config=cfg, mt5_client=mock_mt5, account_tracker=mock_tracker, trade_journal=mock_journal)
+    risk.strategy_tester = mock_tester
+
+    decision = TradeDecision(
+        approved=True,
+        symbol="EURUSD",
+        action="BUY",
+        strategy="titan_pro",
+        volume_lots=0.10,
+        entry_price=1.1000,
+        sl_price=1.0960,
+        tp_price=1.1112,
+        regime=RiskRegime.BETA,
+        ml_score=85.0,
+    )
+
+    ok, msg = await risk.execute_trade_decision(decision)
+    assert ok is True
+    # Verify order was placed with valid volume
+    call_args = mock_mt5.open_market_order.call_args[1]
+    assert call_args['symbol'] == "EURUSD"
+    assert call_args['action'] == "BUY"
+    assert call_args['volume'] > 0

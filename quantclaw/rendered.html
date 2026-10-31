@@ -973,6 +973,7 @@ input:checked + .slider:before {
     <div class="setting-row"><label>Max Dollar Risk ($ Cap)</label><input type="number" id="cfg-maxriskusd" step="1" min="1" max="50" onchange="saveSetting('max_risk_usd_per_trade',+this.value)"/></div>
     <div class="setting-row"><label>Min Dollar Risk ($ Floor)</label><input type="number" id="cfg-minriskusd" step="1" min="1" max="20" onchange="saveSetting('min_risk_usd_per_trade',+this.value)"/></div>
     <div class="setting-row"><label>Max Spread (Points)</label><input type="number" id="cfg-maxspread" min="5" max="200" onchange="saveSetting('max_spread_points',+this.value)"/></div>
+<div class="setting-row"><label>Expectancy-Adaptive Sizing</label><label class="toggle"><input type="checkbox" id="cfg-expectancysizing" onchange="saveSetting('enable_expectancy_adaptive_sizing',this.checked)"><span class="slider"></span></label></div>
 
     <!-- Symbol Permissions Panel -->
     <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px;">
@@ -1068,6 +1069,10 @@ input:checked + .slider:before {
     <div class="setting-row"><label>News Pause Minutes (Before/After)</label><input type="number" id="cfg-newspause" step="5" min="5" max="60" onchange="saveSetting('news_pause_min_before',+this.value)"/></div>
     <div class="setting-row"><label>Session Quality Filter Gate</label><label class="toggle"><input type="checkbox" id="cfg-sessionfilter" onchange="saveSetting('enable_session_filter',this.checked)"><span class="slider"></span></label></div>
     <div class="setting-row"><label>Weekly Profit Target %</label><input type="number" id="cfg-wtp" step="5" min="10" max="100" onchange="saveSetting('weekly_profit_target_pct',+this.value)"/></div>
+<div class="setting-row"><label>Early Structural Loss Cut</label><label class="toggle"><input type="checkbox" id="cfg-earlyinval" onchange="saveSetting('enable_early_invalidation_cut',this.checked)"><span class="slider"></span></label></div>
+<div class="setting-row"><label>Invalidation Cut Level (R)</label><input type="number" id="cfg-invalcutr" step="0.05" min="-0.80" max="-0.15" onchange="saveSetting('invalidation_cut_min_r',+this.value)"/></div>
+<div class="setting-row"><label>Weekend Gap Shield (Friday Gate)</label><label class="toggle"><input type="checkbox" id="cfg-weekendgap" onchange="saveSetting('enable_weekend_gap_shield',this.checked)"><span class="slider"></span></label></div>
+<div class="setting-row"><label>Friday Close Cutoff Hour (UTC)</label><input type="number" id="cfg-fridaycutoff" step="1" min="12" max="23" onchange="saveSetting('friday_close_cutoff_hour_utc',+this.value)"/></div>
   </div>
 
   <!-- Tab 6: Manual Market Order -->
@@ -1385,12 +1390,20 @@ async function loadJournal() {
     list.innerHTML = '<div class="empty">No completed MT5 trades recorded yet</div>';
     return;
   }
-  list.innerHTML = '<table class="custom-table"><thead><tr><th>Ticket</th><th>Symbol</th><th>Action</th><th>Lots</th><th>P&amp;L</th><th>Outcome</th></tr></thead><tbody>' +
+  list.innerHTML = '<table class="custom-table"><thead><tr><th>Ticket</th><th>Symbol</th><th>Action</th><th>Lots</th><th>P&amp;L</th><th>Outcome</th><th>Setup Review</th></tr></thead><tbody>' +
     trades.slice(0, 15).map(t => {
       const pnl = parseFloat(t.pnl_usd || 0);
       const ps = pnl >= 0 ? 'pos' : 'neg';
       const oc = t.outcome === 'win' ? 'badge-buy' : 'badge-sell';
-      return '<tr><td>#' + (t.ticket || '--') + '</td><td><b>' + (t.symbol || '--') + '</b></td><td>' + (t.action || '').toUpperCase() + '</td><td>' + parseFloat(t.volume || 0).toFixed(2) + '</td><td class="' + ps + '" style="font-weight:700">' + (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) + '</td><td><span class="badge ' + oc + '">' + (t.outcome || '--').toUpperCase() + '</span></td></tr>';
+      const tag = t.outcome_tag || (pnl >= 0 ? 'PROFIT' : 'LOSS');
+      let tagStyle = 'background:rgba(255,255,255,0.08);color:var(--text)';
+      if (tag === 'SWEEP_EXPANSION') tagStyle = 'background:rgba(34,197,94,0.18);color:#22c55e;border:1px solid rgba(34,197,94,0.3)';
+      else if (tag === 'SWEET_SPOT_BANKED') tagStyle = 'background:rgba(6,182,212,0.18);color:#06b6d4;border:1px solid rgba(6,182,212,0.3)';
+      else if (tag === 'BREAKEVEN_DEFENSE') tagStyle = 'background:rgba(59,130,246,0.18);color:#60a5fa;border:1px solid rgba(59,130,246,0.3)';
+      else if (tag === 'STRUCTURE_INVALIDATED') tagStyle = 'background:rgba(245,158,11,0.18);color:#f59e0b;border:1px solid rgba(245,158,11,0.3)';
+      else if (tag === 'WEEKEND_GAP_SHIELD') tagStyle = 'background:rgba(168,85,247,0.18);color:#c084fc;border:1px solid rgba(168,85,247,0.3)';
+      else if (tag === 'FULL_SL_HIT') tagStyle = 'background:rgba(239,68,68,0.18);color:#ef4444;border:1px solid rgba(239,68,68,0.3)';
+      return '<tr><td>#' + (t.ticket || '--') + '</td><td><b>' + (t.symbol || '--') + '</b></td><td>' + (t.action || '').toUpperCase() + '</td><td>' + parseFloat(t.volume || 0).toFixed(2) + '</td><td class="' + ps + '" style="font-weight:700">' + (pnl >= 0 ? '+' : '') + '$' + pnl.toFixed(2) + '</td><td><span class="badge ' + oc + '">' + (t.outcome || '--').toUpperCase() + '</span></td><td><span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;' + tagStyle + '">' + tag.replace(/_/g, ' ') + '</span></td></tr>';
     }).join('') + '</tbody></table>';
 }
 
@@ -1549,6 +1562,11 @@ async function loadSettings() {
   sc('cfg-newsfilter', d.enable_news_filter);
   sn('cfg-newspause', d.news_pause_min_before);
   sc('cfg-sessionfilter', d.enable_session_filter);
+sc('cfg-expectancysizing', d.enable_expectancy_adaptive_sizing);
+sc('cfg-earlyinval', d.enable_early_invalidation_cut);
+sn('cfg-invalcutr', d.invalidation_cut_min_r);
+sc('cfg-weekendgap', d.enable_weekend_gap_shield);
+sn('cfg-fridaycutoff', d.friday_close_cutoff_hour_utc);
   sn('cfg-mlthresh', d.ml_brain_min_execute_score);
   sn('cfg-confluence', d.ml_brain_confluence_bonus);
 

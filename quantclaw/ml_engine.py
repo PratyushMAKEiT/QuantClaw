@@ -263,6 +263,10 @@ class MLEngine:
             f"(Trend:{trend_score:.2f}, SMC:{smc_score:.2f}, Confluence:{confluence_count}, Bonus:+{confluence_bonus:.0f}) -> {'APPROVED ✅' if approved else 'REJECTED ❌'}"
         )
 
+        inval_p = getattr(signal, "invalidation_price", None)
+        if inval_p is None and hasattr(signal, "metadata"):
+            inval_p = signal.metadata.get("sweep_level") or signal.metadata.get("sweep_price")
+
         return TradeDecision(
             approved=approved,
             symbol=sym,
@@ -271,6 +275,7 @@ class MLEngine:
             entry_price=price,
             sl_price=sl_price,
             tp_price=tp_price,
+            invalidation_price=inval_p,
             regime=regime,
             ml_score=round(final_score, 1),
             confluence_count=confluence_count,
