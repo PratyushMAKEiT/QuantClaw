@@ -200,6 +200,10 @@ class AppConfig:
     enable_volume_regime_intelligence: bool = True # Adapts targets & trailing to low/normal/high/climax volume
     volume_adaptive_tp: bool = True                # Adjusts TP (1.8R low vol, 2.8R normal, 3.5R high vol)
     enable_stepped_trailing: bool = True           # 5-Zone stepped profit securing trailing engine
+    stepped_trail_auto_mode: bool = True           # Sweet-spot dynamic triggers calibrated to ATR/Volume
+    enable_constant_trailing: bool = True          # Bar-by-bar continuous Chandelier trailing behind runners
+    enable_auto_pilot_tuning: bool = True          # Autonomous market scenario adaptation
+    enable_strategy_tester_autotune: bool = True   # Background time-machine simulator parameter optimizer
     stepped_trail_zone1_r: float = 0.65            # Zone 1 trigger: Soft cushion (SL -> -0.25R)
     stepped_trail_zone2_r: float = 1.05            # Zone 2 trigger: Breakeven Plus (SL -> Entry + offset)
     stepped_trail_zone3_r: float = 1.80            # Zone 3 trigger: Bank 40% cash & Lock SL at +0.80R

@@ -71,6 +71,8 @@ from quantclaw.ai_engine import AIEngine
 from quantclaw.news_monitor import NewsMonitor
 from quantclaw.risk_manager import RiskManager
 from quantclaw.server import create_app
+from quantclaw.strategy_tester import StrategyTester
+from quantclaw.market_thinking import MarketThinkingEngine
 from quantclaw.utils.logger import setup_logger, get_logger
 
 logger = get_logger("main")
@@ -221,6 +223,10 @@ class QuantClawMT5App:
             self.strategy.subscribe(self._on_strategy_signal)
             self.market.subscribe(self.strategy.on_candle_close)
 
+            # 8b. Autonomous Strategy Tester & Live Thinking Brain
+            self.strategy_tester = StrategyTester(config=self.config, mt5_client=self.mt5, market_engine=self.market)
+            self.thinking = MarketThinkingEngine(config=self.config, market_engine=self.market, risk_manager=self.risk, mt5_client=self.mt5)
+
             # 9. FastAPI Telemetry Server
             self.fastapi_app = create_app(
                 config=self.config,
@@ -234,6 +240,8 @@ class QuantClawMT5App:
                 trade_journal=self.journal,
                 news_monitor=self.news,
                 on_settings_applied=self._on_settings_applied,
+                strategy_tester=self.strategy_tester,
+                thinking_engine=self.thinking,
             )
             self.server_runner = ServerRunner(
                 app=self.fastapi_app,
@@ -413,6 +421,31 @@ class QuantClawMT5App:
                     except Exception as e:
                         logger.debug(f"Startup analysis error: {e}")
                 asyncio.create_task(_startup_analysis())
+
+                # Autonomous Strategy Tester / Permutation Auto-Tuning (runs every 30 mins)
+                async def _run_strategy_tester_autotune():
+                    await asyncio.sleep(45)
+                    while True:
+                        try:
+                            if getattr(self.config, 'enable_strategy_tester_autotune', True) and symbols:
+                                test_sym = symbols[0]
+                                logger.info(f"[STRATEGY TESTER] Autonomous permutation optimization triggered for {test_sym}...")
+                                res = await asyncio.to_thread(self.strategy_tester.run_permutation_optimizer, test_sym, "M15", 300)
+                                best = res.get("best_permutation")
+                                if best:
+                                    logger.info(
+                                        f"[STRATEGY TESTER OPTIMIZER] Optimal params tuned for {test_sym}: "
+                                        f"Lookback={best.get('lookback')}, R:R={best.get('rr')}, Expectancy={best.get('expectancy')}R, WinRate={best.get('win_rate')}%"
+                                    )
+                        except Exception as e:
+                            logger.debug(f"Strategy tester background error: {e}")
+                        await asyncio.sleep(1800)
+
+                tester_task = asyncio.create_task(_run_strategy_tester_autotune())
+                tester_task.add_done_callback(
+                    lambda t: logger.error(f'Strategy tester task ended: {t.exception()}') 
+                    if not t.cancelled() and t.exception() else None
+                )
 
                 scan_ticker = 0
                 while True:

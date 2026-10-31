@@ -23,6 +23,8 @@ from pydantic import BaseModel
 
 from quantclaw.utils.logger import get_logger, get_recent_logs
 from quantclaw.dashboard import get_dashboard_html
+from quantclaw.strategy_tester import StrategyTester
+from quantclaw.market_thinking import MarketThinkingEngine
 
 logger = get_logger("server")
 
@@ -39,6 +41,8 @@ def create_app(
     trade_journal: Any,
     news_monitor: Any,
     on_settings_applied: Optional[Callable[[Dict[str, Any]], None]] = None,
+    strategy_tester: Any = None,
+    thinking_engine: Any = None,
 ) -> FastAPI:
     """Factory creating configured FastAPI app for MetaTrader 5."""
 
@@ -63,6 +67,8 @@ def create_app(
     app.state.journal = trade_journal
     app.state.news = news_monitor
     app.state.on_settings_applied = on_settings_applied
+    app.state.strategy_tester = strategy_tester or StrategyTester(config, mt5_client, market_engine)
+    app.state.thinking_engine = thinking_engine or MarketThinkingEngine(config, market_engine, risk_manager)
 
     # In-memory log cache for dashboard terminal
     app.state.log_cache: List[str] = []
@@ -548,6 +554,69 @@ def create_app(
         logs = get_recent_logs(limit)
         return {"logs": logs}
 
+    # ── AI Thinking & Possibility Permutations ────────────────────────────────
+    @app.get("/api/v4/thinking")
+    @app.get("/lasthopepanel/api/v4/thinking")
+    async def get_thinking_route(symbol: str = ""):
+        te = getattr(app.state, "thinking_engine", None)
+        if not te:
+            return {"thinking": []}
+        active_syms = config.get_active_symbols() if hasattr(config, "get_active_symbols") else config.trade_symbols
+        syms_to_check = [symbol.strip().upper()] if symbol else active_syms[:8]
+        data = await asyncio.to_thread(te.get_all_thinking, syms_to_check)
+        return {"thinking": data, "count": len(data), "timestamp": time.time()}
+
+    @app.get("/api/v4/thinking/permutations")
+    @app.get("/lasthopepanel/api/v4/thinking/permutations")
+    async def get_thinking_permutations_route(symbol: str = "EURUSD", timeframe: str = "M15"):
+        te = getattr(app.state, "thinking_engine", None)
+        if not te:
+            return {"symbol": symbol, "narrative": "Initializing...", "permutations": []}
+        return await asyncio.to_thread(te.generate_symbol_thinking, symbol.strip().upper(), timeframe)
+
+    @app.get("/api/v4/thinking/summary")
+    @app.get("/lasthopepanel/api/v4/thinking/summary")
+    async def get_thinking_summary_route():
+        te = getattr(app.state, "thinking_engine", None)
+        if not te:
+            return {"symbols": [], "in_trade_supervision": []}
+        return await asyncio.to_thread(te.get_all_symbols_summary)
+
+    # Strategy Tester / Time-Machine Optimizer
+    @app.post("/api/v4/strategy-tester/run")
+    @app.post("/api/v4/strategy-tester/tune")
+    @app.post("/lasthopepanel/api/v4/strategy-tester/run")
+    @app.post("/lasthopepanel/api/v4/strategy-tester/tune")
+    async def run_strategy_tester_route(request: Request):
+        st = getattr(app.state, "strategy_tester", None)
+        if not st:
+            return {"success": False, "error": "Strategy Tester not initialized"}
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        symbol = str(body.get("symbol", config.trade_symbols[0] if config.trade_symbols else "EURUSD")).strip().upper()
+        strategy = str(body.get("strategy", "titan_pro")).lower().replace(" ", "_")
+        if "smc" in strategy:
+            strategy = "smc_liquidity"
+        else:
+            strategy = "titan_pro"
+        timeframe = str(body.get("timeframe", "M15"))
+        bars = int(body.get("bars", 300))
+        result = await asyncio.to_thread(st.run_permutation_optimizer, symbol, timeframe, strategy=strategy, bars=bars)
+        return result
+
+    @app.get("/api/v4/strategy-tester/results")
+    @app.get("/api/v4/strategy-tester/status")
+    @app.get("/lasthopepanel/api/v4/strategy-tester/results")
+    @app.get("/lasthopepanel/api/v4/strategy-tester/status")
+    async def get_strategy_tester_results_route():
+        st = getattr(app.state, "strategy_tester", None)
+        if not st:
+            return {"results": {}, "status": "idle"}
+        res = st.get_latest_results()
+        return {"status": "ready", "results": res}
+
     # ── Settings Hot-Reload ───────────────────────────────────────────────────
 
     @app.get("/api/v4/settings")
@@ -583,6 +652,10 @@ def create_app(
             "enable_partial_take_profit": cfg.enable_partial_take_profit,
             "enable_breakeven_trigger": cfg.enable_breakeven_trigger,
             "enable_trailing_stop": cfg.enable_trailing_stop,
+            "stepped_trail_auto_mode": getattr(cfg, "stepped_trail_auto_mode", True),
+            "enable_constant_trailing": getattr(cfg, "enable_constant_trailing", True),
+            "enable_auto_pilot_tuning": getattr(cfg, "enable_auto_pilot_tuning", True),
+            "enable_strategy_tester_autotune": getattr(cfg, "enable_strategy_tester_autotune", True),
             "server_port": cfg.server_port,
         }
 
@@ -636,7 +709,7 @@ def create_app(
             'enable_partial_take_profit', 'enable_partial_tp', 'partial_tp_ratio', 'partial_tp_close_pct',
             'enable_early_breakeven', 'early_breakeven_r_ratio', 'enable_soft_risk_reduction', 'soft_risk_reduction_r', 'soft_risk_target_r', 'commission_max_pct_of_tp',
             'enable_volume_regime_intelligence', 'volume_adaptive_tp', 'enable_stepped_trailing',
-            'stepped_trail_zone1_r', 'stepped_trail_zone2_r', 'stepped_trail_zone3_r', 'stepped_trail_zone4_r', 'stepped_trail_zone5_r',
+            'stepped_trail_zone1_r', 'stepped_trail_zone2_r', 'stepped_trail_zone3_r', 'stepped_trail_zone4_r', 'stepped_trail_zone5_r', 'stepped_trail_auto_mode', 'enable_constant_trailing', 'enable_auto_pilot_tuning', 'enable_strategy_tester_autotune',
             'enable_breakeven_trigger', 'enable_breakeven', 'breakeven_r_ratio',
             'enable_trailing_stop', 'trailing_stop_atr_mult', 'max_concurrent_positions',
             'daily_max_loss_pct', 'weekly_profit_target_pct', 'max_consecutive_losses',

@@ -718,13 +718,27 @@ class RiskManager:
                 except Exception:
                     pass
 
-            # Zone Triggers (Adaptive to Volume Regime)
-            if vol_regime == "LOW_VOLUME":
-                z1_trigger = 0.50   # Soft cushion earlier in quiet markets
-                z2_trigger = 0.90   # BE earlier before range reversal
-                z3_trigger = 1.40   # Bank partial profit earlier
-                z4_trigger = 2.00
-                z5_trigger = 2.40
+            # Auto Mode & Dynamic Scenario Adaptive Triggers
+            auto_mode = getattr(self.config, "stepped_trail_auto_mode", True)
+            if auto_mode:
+                if vol_regime == "LOW_VOLUME":
+                    z1_trigger = 0.45   # Sweet spot soft cushion in compressed chop
+                    z2_trigger = 0.85   # Fast breakeven before range boundary reversal
+                    z3_trigger = 1.35   # Sweet spot partial cash lock (bank 40% profit)
+                    z4_trigger = 1.80
+                    z5_trigger = 2.20
+                elif vol_regime in ("HIGH_VOLUME", "CLIMAX_VOLUME"):
+                    z1_trigger = 0.65   # Breathing space for momentum expansion
+                    z2_trigger = 1.10   # Breakeven Plus
+                    z3_trigger = 1.90   # Bank 40% cash into balance
+                    z4_trigger = 2.50   # Mega profit lock
+                    z5_trigger = 2.80   # Constant trailing runner
+                else:
+                    z1_trigger = 0.55
+                    z2_trigger = 1.00
+                    z3_trigger = 1.70
+                    z4_trigger = 2.30
+                    z5_trigger = 2.70
             else:
                 z1_trigger = float(getattr(self.config, "stepped_trail_zone1_r", 0.65))
                 z2_trigger = float(getattr(self.config, "stepped_trail_zone2_r", 1.05))
@@ -922,9 +936,11 @@ class RiskManager:
                             logger.warning(f"🛑 [CLIMAX VOLUME DEFENSE] Locked SL @ +1.20R ({climax_sl}) on #{ticket} {sym} ahead of blow-off reversal")
                     except Exception: pass
 
-            # ZONE 5 & RUNNER TRAILING: High-Water Dynamic ATR Trail (> 2.80R for runners)
+            # ZONE 5 & CONSTANT TRAILING: High-Water Dynamic ATR Trail
             trail_mult = float(getattr(self.config, "trailing_stop_atr_mult", 1.5)) * trail_atr_mult
-            trail_activation = z5_trigger if enable_stepped else float(getattr(self.config, "trail_activation_r", 1.5))
+            constant_trail_enabled = getattr(self.config, "enable_constant_trailing", True)
+            # Constant trailing activates at sweet-spot z3 trigger in auto mode, or z5 trigger in manual mode
+            trail_activation = (z3_trigger if (auto_mode and constant_trail_enabled) else z5_trigger) if enable_stepped else float(getattr(self.config, "trail_activation_r", 1.5))
             if getattr(self.config, "enable_trailing_stop", True) and r_multiple >= trail_activation:
                 # Acceleration: if price moved fast in last 5 M1 candles, tighten trail
                 if self.market_engine:

@@ -707,6 +707,14 @@ input:checked + .slider:before {
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         <span>Performance Analytics</span>
       </button>
+      <button class="tab-btn" onclick="switchLeftTab('thinking')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>AI Live Thinking &amp; Permutations</span>
+      </button>
+      <button class="tab-btn" onclick="switchLeftTab('tester')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span>Strategy Time-Machine Tester</span>
+      </button>
     </div>
 
     <!-- Live Terminal Tab -->
@@ -774,6 +782,147 @@ input:checked + .slider:before {
       </div>
       <div style="font-size:11px;font-weight:600;margin-bottom:6px;color:var(--text);">Asset P&amp;L Breakdown</div>
       <div id="perf-symbol-breakdown" style="background:#040710;border:1px solid var(--border);border-radius:6px;padding:10px;font-family:monospace;font-size:11px;color:var(--text2);">Loading symbol breakdown...</div>
+    </div>
+
+    <!-- AI Market Thinking & Permutation Matrix Tab -->
+    <div id="ltab-thinking" class="tab-content" style="padding:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text);letter-spacing:0.5px;text-transform:uppercase;">
+          Active Symbol Market Thinking &amp; Narrative Stream
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;color:var(--muted);">Symbol:</span>
+          <select id="thinking-sym-select" onchange="loadThinking()" style="background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;">
+            <option value="EURUSD">EURUSD</option>
+            <option value="GBPUSD">GBPUSD</option>
+            <option value="USDJPY">USDJPY</option>
+            <option value="XAUUSD">XAUUSD</option>
+            <option value="BTCUSD">BTCUSD</option>
+            <option value="US30">US30</option>
+            <option value="NAS100">NAS100</option>
+          </select>
+          <button class="btn-sm" onclick="loadThinking()" style="background:var(--cyan);color:#04131f;font-weight:700;padding:3px 8px;font-size:11px;">Refresh</button>
+        </div>
+      </div>
+
+      <!-- In-Trade Live Setup Health & Win Probability Banner -->
+      <div id="thinking-trade-box" style="margin-bottom:12px;display:none;background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-size:11px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green);"></span>
+            <span id="thinking-trade-title">LIVE MT5 POSITION UNDER ACTIVE SUPERVISION</span>
+          </div>
+          <span id="thinking-trade-badge" class="badge badge-buy">STRUCTURE INTACT</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-top:8px;">
+          <div style="background:#040710;border:1px solid var(--border);border-radius:6px;padding:8px;">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;">Live Win Probability</div>
+            <div id="thinking-trade-winprob" style="font-size:15px;font-weight:700;color:var(--green);margin-top:2px;">--%</div>
+          </div>
+          <div style="background:#040710;border:1px solid var(--border);border-radius:6px;padding:8px;">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;">Setup Condition</div>
+            <div id="thinking-trade-condition" style="font-size:12px;font-weight:600;color:var(--cyan);margin-top:4px;">OPTIMAL</div>
+          </div>
+          <div style="background:#040710;border:1px solid var(--border);border-radius:6px;padding:8px;">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;">Next Trailing Action</div>
+            <div id="thinking-trade-nextact" style="font-size:11px;font-weight:600;color:var(--text);margin-top:4px;">Ratcheting Sweet-Spot</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Symbol Narrative Thinking Box -->
+      <div style="background:#040710;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-size:11px;font-weight:700;color:var(--cyan);text-transform:uppercase;letter-spacing:0.5px;">Live Market Narrative &amp; Liquidity Flow</div>
+          <span id="thinking-updated" style="font-size:10px;color:var(--muted);">Just now</span>
+        </div>
+        <div id="thinking-narrative" style="font-size:12px;line-height:1.6;color:var(--text);min-height:55px;">
+          Analyzing market structure, order book liquidity, and fair value gaps...
+        </div>
+      </div>
+
+      <!-- Possibility Permutations Matrix -->
+      <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Possibility Permutations &amp; Scenario Probabilities</div>
+      <div id="thinking-permutations-container" style="display:flex;flex-direction:column;gap:8px;">
+        <div style="color:var(--muted);font-size:11px;">Loading permutation models...</div>
+      </div>
+    </div>
+
+    <!-- Strategy Time-Machine Tester & Autotuner Tab -->
+    <div id="ltab-tester" class="tab-content" style="padding:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text);letter-spacing:0.5px;text-transform:uppercase;">Autonomous Strategy Tester &amp; Time-Machine Optimizer</div>
+          <div style="font-size:10px;color:var(--muted);">Simulate permutations across historical bars without risking capital to tune live parameters</div>
+        </div>
+      </div>
+
+      <div style="background:#040710;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div>
+          <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px;text-transform:uppercase;">Test Symbol</label>
+          <select id="tester-symbol" style="background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 10px;font-size:11px;">
+            <option value="EURUSD">EURUSD (Forex Major)</option>
+            <option value="GBPUSD">GBPUSD (Forex Cable)</option>
+            <option value="USDJPY">USDJPY (Yen Cross)</option>
+            <option value="XAUUSD">XAUUSD (Gold Spot)</option>
+            <option value="BTCUSD">BTCUSD (Bitcoin)</option>
+            <option value="US30">US30 (Dow Jones)</option>
+            <option value="NAS100">NAS100 (Nasdaq)</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px;text-transform:uppercase;">Strategy</label>
+          <select id="tester-strategy" style="background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 10px;font-size:11px;">
+            <option value="TITAN_PRO">TITAN PRO (Order Flow &amp; Reversal)</option>
+            <option value="SMC_LIQUIDITY">SMC Liquidity &amp; Order Blocks</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--muted);display:block;margin-bottom:4px;text-transform:uppercase;">Historical Bars</label>
+          <select id="tester-bars" style="background:var(--input-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:6px 10px;font-size:11px;">
+            <option value="200">200 Bars</option>
+            <option value="300" selected>300 Bars (~3 Days M15)</option>
+            <option value="500">500 Bars (~5 Days M15)</option>
+          </select>
+        </div>
+        <button class="btn-sm btn-success" id="btn-run-tester" onclick="runStrategyTester()" style="padding:7px 16px;font-size:11px;font-weight:700;">Run Permutation Optimizer</button>
+      </div>
+
+      <!-- Optimizer Result Metrics -->
+      <div id="tester-results-container" style="display:none;">
+        <div class="equity-grid" style="margin-bottom:12px;">
+          <div class="eq-card"><div class="el">Best Expectancy</div><div class="ev pos" id="tester-best-exp">--</div></div>
+          <div class="eq-card"><div class="el">Backtest Win Rate</div><div class="ev pos" id="tester-best-wr">--</div></div>
+          <div class="eq-card"><div class="el">Profit Factor</div><div class="ev neu" id="tester-best-pf">--</div></div>
+          <div class="eq-card"><div class="el">Simulated Trades</div><div class="ev neu" id="tester-best-trades">--</div></div>
+        </div>
+        <div style="background:#040710;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div style="font-size:11px;font-weight:700;color:var(--cyan);text-transform:uppercase;">Top Parameter Permutations Ranked by Expectancy</div>
+            <button class="btn-sm btn-success" onclick="applyTunedParameters()" style="padding:4px 10px;font-size:10px;">Apply Best To Live Bot</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace;text-align:left;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--border);color:var(--muted);">
+                  <th style="padding:6px 8px;">Rank</th>
+                  <th style="padding:6px 8px;">Lookback</th>
+                  <th style="padding:6px 8px;">Target R:R</th>
+                  <th style="padding:6px 8px;">Win Rate</th>
+                  <th style="padding:6px 8px;">Trades</th>
+                  <th style="padding:6px 8px;">Profit Factor</th>
+                  <th style="padding:6px 8px;">Expectancy</th>
+                </tr>
+              </thead>
+              <tbody id="tester-permutations-tbody">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div id="tester-placeholder" style="color:var(--muted);font-size:11px;padding:20px;text-align:center;border:1px dashed var(--border);border-radius:8px;">
+        Select a symbol and click "Run Permutation Optimizer" to simulate historical scenarios and find high-expectancy setups.
+      </div>
     </div>
   </div>
 
@@ -873,7 +1022,10 @@ input:checked + .slider:before {
     <div class="setting-row"><label>Volume-Adaptive Target Scaling</label><label class="toggle"><input type="checkbox" id="cfg-voltp" onchange="saveSetting('volume_adaptive_tp',this.checked)"><span class="slider"></span></label></div>
 
     <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
-      <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Stepped Profit Triggers</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Auto Sweet-Spot &amp; Constant Trailing</div>
+      <div class="setting-row"><label>Auto-Mode Sweet-Spot Scaling</label><label class="toggle"><input type="checkbox" id="cfg-autostepped" onchange="saveSetting('stepped_trail_auto_mode',this.checked)"><span class="slider"></span></label></div>
+      <div class="setting-row"><label>Constant Runner Trailing (Bar-by-Bar)</label><label class="toggle"><input type="checkbox" id="cfg-constanttrail" onchange="saveSetting('enable_constant_trailing',this.checked)"><span class="slider"></span></label></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Stepped Profit Triggers (Manual Override)</div>
       <div class="setting-row"><label>Zone 1: Soft Cushion Trigger (R)</label><input type="number" id="cfg-z1r" step=".05" min=".4" max="1.0" onchange="saveSetting('stepped_trail_zone1_r',+this.value)"/></div>
       <div class="setting-row"><label>Zone 2: Breakeven Plus Trigger (R)</label><input type="number" id="cfg-z2r" step=".05" min=".8" max="1.5" onchange="saveSetting('stepped_trail_zone2_r',+this.value)"/></div>
       <div class="setting-row"><label>Zone 3: Bank 40% Cash &amp; Lock +0.8R</label><input type="number" id="cfg-z3r" step=".1" min="1.2" max="2.2" onchange="saveSetting('stepped_trail_zone3_r',+this.value)"/></div>
@@ -893,10 +1045,8 @@ input:checked + .slider:before {
       <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Institutional Trend Strategies</div>
       <div class="setting-row"><label>TITAN PRO (Order Flow &amp; Reversal)</label><label class="toggle"><input type="checkbox" id="cfg-titan" onchange="saveSetting('strategy_titan_pro_enabled',this.checked)"><span class="slider"></span></label></div>
       <div class="setting-row"><label>SMC Liquidity &amp; Order Blocks</label><label class="toggle"><input type="checkbox" id="cfg-smc" onchange="saveSetting('strategy_smc_enabled',this.checked)"><span class="slider"></span></label></div>
-      <div class="setting-row"><label>OCC R5 Trend &amp; Momentum</label><label class="toggle"><input type="checkbox" id="cfg-occ" onchange="saveSetting('strategy_occ_r5_enabled',this.checked)"><span class="slider"></span></label></div>
-      <div class="setting-row"><label>Eyes Smart Structure Pro</label><label class="toggle"><input type="checkbox" id="cfg-eyes" onchange="saveSetting('strategy_eyes_sme_enabled',this.checked)"><span class="slider"></span></label></div>
-      <div class="setting-row"><label>Quant Way Institutional Flow</label><label class="toggle"><input type="checkbox" id="cfg-qw" onchange="saveSetting('strategy_quant_way_enabled',this.checked)"><span class="slider"></span></label></div>
-      <div class="setting-row"><label>Mean-Reversion Snapper (Counter-trend)</label><label class="toggle"><input type="checkbox" id="cfg-meanrev" onchange="saveSetting('strategy_mean_rev_enabled',this.checked)"><span class="slider"></span></label></div>
+      <div class="setting-row"><label>Autonomous Auto-Pilot Parameter Tuning</label><label class="toggle"><input type="checkbox" id="cfg-autopilot" onchange="saveSetting('enable_auto_pilot_tuning',this.checked)"><span class="slider"></span></label></div>
+      <div class="setting-row"><label>Strategy Tester 30-min Auto-Tuning</label><label class="toggle"><input type="checkbox" id="cfg-testerautotune" onchange="saveSetting('enable_strategy_tester_autotune',this.checked)"><span class="slider"></span></label></div>
     </div>
 
     <div style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
@@ -1374,10 +1524,10 @@ async function loadSettings() {
   sc('cfg-auto', d.enable_autonomous_trading);
   sc('cfg-titan', d.strategy_titan_pro_enabled);
   sc('cfg-smc', d.strategy_smc_enabled);
-  sc('cfg-occ', d.strategy_occ_r5_enabled);
-  sc('cfg-eyes', d.strategy_eyes_sme_enabled);
-  sc('cfg-meanrev', d.strategy_mean_rev_enabled);
-  sc('cfg-qw', d.strategy_quant_way_enabled);
+  sc('cfg-autopilot', d.enable_auto_pilot_tuning);
+  sc('cfg-testerautotune', d.enable_strategy_tester_autotune);
+  sc('cfg-autostepped', d.stepped_trail_auto_mode);
+  sc('cfg-constanttrail', d.enable_constant_trailing);
 
   sn('cfg-dloss', d.daily_max_loss_pct);
   sn('cfg-wtp', d.weekly_profit_target_pct);
@@ -1713,6 +1863,7 @@ async function saveAndConnectMT5() {
 
   await refreshFast();
   await refreshSlow();
+  await loadThinking();
 }
 
 async function saveSetting(k, v) {
@@ -1833,6 +1984,126 @@ function showToast(m, isErr) {
   }, 3200);
 }
 
+// AI Live Thinking & Possibility Permutations
+async function loadThinking() {
+  const symSelect = document.getElementById('thinking-sym-select');
+  const sym = symSelect ? symSelect.value : 'EURUSD';
+  const res = await api('/api/v4/thinking/permutations?symbol=' + sym);
+  if (!res || res.error) return;
+
+  const narEl = document.getElementById('thinking-narrative');
+  if (narEl && res.narrative) narEl.textContent = res.narrative;
+
+  const upEl = document.getElementById('thinking-updated');
+  if (upEl) upEl.textContent = new Date().toLocaleTimeString();
+
+  const cont = document.getElementById('thinking-permutations-container');
+  if (cont && res.permutations) {
+    cont.innerHTML = res.permutations.map(p => `
+      <div style="background:#040710;border:1px solid var(--border);border-radius:6px;padding:8px 12px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;font-size:11px;">
+          <span style="font-weight:600;color:var(--text);">${p.name}</span>
+          <span style="font-weight:700;color:${p.probability >= 30 ? 'var(--green)' : 'var(--cyan)'};">${p.probability}%</span>
+        </div>
+        <div style="width:100%;background:rgba(255,255,255,0.06);height:6px;border-radius:3px;overflow:hidden;margin-bottom:4px;">
+          <div style="width:${p.probability}%;background:${p.probability >= 30 ? 'var(--green)' : 'var(--cyan)'};height:100%;"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);">${p.rationale}</div>
+      </div>
+    `).join('');
+  }
+
+  // Live in-trade supervision
+  const sumRes = await api('/api/v4/thinking/summary');
+  const tradeBox = document.getElementById('thinking-trade-box');
+  if (sumRes && sumRes.in_trade_supervision && sumRes.in_trade_supervision.length > 0) {
+    const t = sumRes.in_trade_supervision[0];
+    if (tradeBox) {
+      tradeBox.style.display = 'block';
+      const tTitle = document.getElementById('thinking-trade-title');
+      if (tTitle) tTitle.textContent = `${t.symbol} #${t.ticket} | Type: ${t.type} | R-Multiple: ${t.current_r}R`;
+      const tBadge = document.getElementById('thinking-trade-badge');
+      if (tBadge) {
+        tBadge.textContent = t.setup_health;
+        tBadge.className = 'badge ' + (t.setup_health.includes('FAIL') ? 'badge-sell' : 'badge-buy');
+      }
+      const wp = document.getElementById('thinking-trade-winprob');
+      if (wp) {
+        wp.textContent = t.live_win_prob + '%';
+        wp.style.color = t.live_win_prob >= 50 ? 'var(--green)' : 'var(--red)';
+      }
+      const cond = document.getElementById('thinking-trade-condition');
+      if (cond) cond.textContent = t.setup_health;
+      const nxt = document.getElementById('thinking-trade-nextact');
+      if (nxt) nxt.textContent = t.next_action;
+    }
+  } else if (tradeBox) {
+    tradeBox.style.display = 'none';
+  }
+}
+
+// Strategy Tester & Autotuner Execution
+let lastTunedPermutation = null;
+async function runStrategyTester() {
+  const sym = document.getElementById('tester-symbol').value;
+  const st = document.getElementById('tester-strategy').value;
+  const bars = parseInt(document.getElementById('tester-bars').value, 10);
+  const btn = document.getElementById('btn-run-tester');
+  btn.textContent = 'Simulating...';
+  btn.disabled = true;
+
+  const res = await api('/api/v4/strategy-tester/tune', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ symbol: sym, timeframe: 'M15', bars: bars })
+  });
+
+  btn.textContent = 'Run Permutation Optimizer';
+  btn.disabled = false;
+
+  if (!res || res.error) {
+    showToast('Tester Error: ' + (res ? res.error : 'Unknown'), true);
+    return;
+  }
+
+  document.getElementById('tester-results-container').style.display = 'block';
+  document.getElementById('tester-placeholder').style.display = 'none';
+
+  const best = res.best_permutation;
+  lastTunedPermutation = best;
+  if (best) {
+    document.getElementById('tester-best-exp').textContent = '+' + best.expectancy + 'R';
+    document.getElementById('tester-best-wr').textContent = best.win_rate + '%';
+    document.getElementById('tester-best-pf').textContent = best.profit_factor;
+    document.getElementById('tester-best-trades').textContent = best.total_trades;
+  }
+
+  const tbody = document.getElementById('tester-permutations-tbody');
+  if (tbody && res.permutations) {
+    tbody.innerHTML = res.permutations.slice(0, 10).map((p, idx) => `
+      <tr style="border-bottom:1px solid rgba(255,255,255,0.05);${idx === 0 ? 'background:rgba(16,185,129,0.08);color:var(--green);font-weight:700;' : ''}">
+        <td style="padding:6px 8px;">#${idx + 1}</td>
+        <td style="padding:6px 8px;">${p.lookback}</td>
+        <td style="padding:6px 8px;">${p.rr}R</td>
+        <td style="padding:6px 8px;">${p.win_rate}%</td>
+        <td style="padding:6px 8px;">${p.total_trades}</td>
+        <td style="padding:6px 8px;">${p.profit_factor}</td>
+        <td style="padding:6px 8px;">+${p.expectancy}R</td>
+      </tr>
+    `).join('');
+  }
+  showToast(`Optimal parameters tuned: Lookback ${best.lookback}, RR ${best.rr}`, false);
+}
+
+async function applyTunedParameters() {
+  if (!lastTunedPermutation) {
+    showToast('No tuned parameters available. Run optimizer first.', true);
+    return;
+  }
+  await saveSetting('stepped_trail_zone3_r', lastTunedPermutation.rr);
+  showToast(`Applied optimal R:R (${lastTunedPermutation.rr}R) to live bot!`, false);
+}
+
 async function refreshFast() {
   await Promise.all([loadPositions(), loadLogs(), loadStatus()]);
 }
@@ -1846,7 +2117,8 @@ async function refreshSlow() {
     loadDiagnostics(),
     loadDiscussions(),
     loadNews(),
-    loadPerformance()
+    loadPerformance(),
+    loadThinking()
   ]);
 }
 

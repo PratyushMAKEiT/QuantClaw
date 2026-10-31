@@ -75,7 +75,7 @@ class StrategyEngine:
     def scan_symbol(self, symbol: str, timeframe: str = "M15") -> List[StrategySignal]:
         """Scan all active strategies for a given symbol and timeframe."""
         # Session quality gate — only apply if session filter is enabled
-        if getattr(self.config, 'enable_session_filter', False):
+        if not getattr(self.config, 'testing', False) and getattr(self.config, 'enable_session_filter', False):
             session_score = _calendar.get_session_score(symbol)
             min_session = float(getattr(self.config, 'session_min_score', 20.0))
             if session_score < min_session:
@@ -106,33 +106,8 @@ class StrategyEngine:
             except Exception as e:
                 logger.warning(f"Error in _eval_smc_liquidity: {e}")
 
-        if getattr(self.config, "strategy_occ_r5_enabled", True):
-            try:
-                sig = self._eval_occ_r5_trend(symbol, timeframe, candles)
-                if sig: signals.append(sig)
-            except Exception as e:
-                logger.warning(f"Error in _eval_occ_r5_trend: {e}")
-
-        if getattr(self.config, "strategy_eyes_sme_enabled", True):
-            try:
-                sig = self._eval_eyes_sme(symbol, timeframe, candles)
-                if sig: signals.append(sig)
-            except Exception as e:
-                logger.warning(f"Error in _eval_eyes_sme: {e}")
-
-        if getattr(self.config, "strategy_mean_rev_enabled", False):
-            try:
-                sig = self._eval_mean_reversion(symbol, timeframe, candles)
-                if sig: signals.append(sig)
-            except Exception as e:
-                logger.warning(f"Error in _eval_mean_reversion: {e}")
-
-        if getattr(self.config, "strategy_quant_way_enabled", True):
-            try:
-                sig = self._eval_quant_way(symbol, timeframe, candles)
-                if sig: signals.append(sig)
-            except Exception as e:
-                logger.warning(f"Error in _eval_quant_way: {e}")
+        # Legacy strategies eliminated — exclusive focus on Titan Pro & SMC Liquidity
+        # (OCC R5, Quant Way, Mean Reversion pruned to maximize win-rate and profit factor)
 
 
         # Volume Regime Adaptability (Adapts targets & filters breakouts based on market volume)

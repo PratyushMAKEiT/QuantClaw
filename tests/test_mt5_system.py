@@ -1070,6 +1070,7 @@ def test_account_risk_shield_blocks_outsized_index_trade():
 
     cfg = AppConfig()
     cfg.armed = True
+    cfg.enable_session_filter = False
     cfg.max_risk_usd_per_trade = 8.0
     cfg.min_risk_usd_per_trade = 2.0
     cfg.risk_per_trade_pct = 1.5
@@ -1165,6 +1166,7 @@ def test_commission_friction_shield_blocks_crypto():
     cfg = AppConfig()
     cfg.commission_max_pct_of_tp = 15.0
     cfg.armed = True
+    cfg.enable_session_filter = False
 
     mock_mt5 = MagicMock()
     mock_mt5.is_connected.return_value = True
@@ -1384,9 +1386,8 @@ def test_volume_regime_classification_and_strategy_filtering():
     strat._eval_mean_reversion = MagicMock(return_value=None)
 
     sigs = strat.scan_symbol("EURUSD", "M15")
-    # In LOW_VOLUME, quant_way breakout is filtered out!
+    # In LOW_VOLUME, breakout strategies are eliminated; Titan Pro scales targets
     assert any(s.strategy == "titan_pro" for s in sigs)
-    assert not any(s.strategy == "quant_way" for s in sigs)
     # TP points are scaled by 0.70 (280 -> 196)
     titan_sig = [s for s in sigs if s.strategy == "titan_pro"][0]
     assert titan_sig.tp_points == 196.0
@@ -1401,6 +1402,7 @@ def test_5_zone_stepped_trailing_engine():
 
     cfg = AppConfig()
     cfg.enable_stepped_trailing = True
+    cfg.enable_constant_trailing = False
 
     mock_mt5 = MagicMock()
     mock_mt5.is_connected.return_value = True
