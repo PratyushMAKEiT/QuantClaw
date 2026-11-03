@@ -122,7 +122,7 @@ class StrategyEngine:
                         signals = [s for s in signals if s.strategy != "quant_way"]
                     if rr_mult != 1.0:
                         for s in signals:
-                            s.tp_points = max(10.0, round(s.tp_points * rr_mult, 1))
+                            s.tp_points = round(s.tp_points * rr_mult, 6)
             except Exception as e:
                 logger.debug(f"Volume regime adaptability error: {e}")
 
@@ -291,28 +291,45 @@ class StrategyEngine:
         if not sweep_detected:
             return None
 
-        # 4. Entry, SL, and TP Calculation (High RR: 1:2.8)
+        # 4. Macro H4 EMA200 Trend Filter & Entry, SL, and TP Calculation (High RR: 1:2.8)
+        if len(h4_candles) >= 35:
+            h4_closes = [float(c["close"]) for c in h4_candles]
+            h4_ema = calculate_ema_latest(h4_closes, min(len(h4_closes), 50))
+            if action == "buy" and h4_closes[-1] < (h4_ema * 0.995):
+                return None
+            elif action == "sell" and h4_closes[-1] > (h4_ema * 1.005):
+                return None
+
         entry_price = last_close
         rr = float(getattr(self.config, "titan_pro_rr_ratio", 2.8))
         if hasattr(self, "strategy_tester") and self.strategy_tester:
             tuned = self.strategy_tester.get_optimal_params(symbol, "titan_pro")
             if tuned:
                 rr = float(tuned.get("rr") or tuned.get("rr_ratio") or tuned.get("target_rr", rr))
-        min_sl = max(0.35 * atr, 1e-4)
+
+        # Institutional Minimum Stop Loss to survive broker spreads & normal market noise
+        sym_u = symbol.upper()
+        if "XAU" in sym_u or "GOLD" in sym_u:
+            min_sl = max(1.2 * atr, 3.50)
+        elif any(c in sym_u for c in ["BTC", "ETH", "SOL", "CRYPTO"]):
+            min_sl = max(1.2 * atr, 200.0)
+        elif any(idx in sym_u for idx in ["US30", "DJ", "NAS", "USTEC", "SPX", "GER", "DAX"]):
+            min_sl = max(1.2 * atr, 30.0)
+        elif any(j in sym_u for j in ["JPY"]):
+            min_sl = max(1.2 * atr, 0.15)
+        else:
+            min_sl = max(1.2 * atr, 0.00120)  # At least 12-15 pips on Forex
+        max_sl = min_sl * 3.5
 
         if action == "buy":
-            sl_price = sweep_level - (0.25 * atr)
-            sl_points = entry_price - sl_price
-            if sl_points < min_sl:
-                sl_points = min_sl
-                sl_price = entry_price - sl_points
+            raw_sl = entry_price - (sweep_level - (0.35 * atr))
+            sl_points = min(max_sl, max(min_sl, raw_sl))
+            sl_price = entry_price - sl_points
             tp_points = sl_points * rr
         else:
-            sl_price = sweep_level + (0.25 * atr)
-            sl_points = sl_price - entry_price
-            if sl_points < min_sl:
-                sl_points = min_sl
-                sl_price = entry_price + sl_points
+            raw_sl = (sweep_level + (0.35 * atr)) - entry_price
+            sl_points = min(max_sl, max(min_sl, raw_sl))
+            sl_price = entry_price + sl_points
             tp_points = sl_points * rr
 
         # Strength calculation

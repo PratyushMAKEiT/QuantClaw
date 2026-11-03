@@ -183,7 +183,7 @@ class AppConfig:
 
     # ── Self-Learning ML Brain ─────────────────────────────────────────────
     enable_ml_brain: bool = True
-    ml_brain_min_execute_score: float = 70.0 # Score threshold to punch trade (0-100)
+    ml_brain_min_execute_score: float = 75.0 # Score threshold to punch trade (0-100)
     ml_brain_confluence_bonus: float = 20.0  # Confluence bonus when 2+ strategies agree
     ml_brain_enable_memory: bool = True      # Learn from past winning/losing setup fingerprints
     
@@ -204,12 +204,13 @@ class AppConfig:
     enable_constant_trailing: bool = True          # Bar-by-bar continuous Chandelier trailing behind runners
     enable_auto_pilot_tuning: bool = True          # Autonomous market scenario adaptation
     enable_strategy_tester_autotune: bool = True   # Background time-machine simulator parameter optimizer
-    stepped_trail_zone1_r: float = 0.65            # Zone 1 trigger: Soft cushion (SL -> -0.25R)
-    stepped_trail_zone2_r: float = 1.05            # Zone 2 trigger: Breakeven Plus (SL -> Entry + offset)
+    stepped_trail_zone1_r: float = 0.80            # Zone 1 trigger: Soft cushion (SL -> -0.25R)
+    stepped_trail_zone2_r: float = 1.30            # Zone 2 trigger: Breakeven Plus (SL -> Entry + offset)
     stepped_trail_zone3_r: float = 1.80            # Zone 3 trigger: Bank 40% cash & Lock SL at +0.80R
     stepped_trail_zone4_r: float = 2.40            # Zone 4 trigger: Lock SL at +1.40R
     stepped_trail_zone5_r: float = 2.80            # Zone 5 trigger: High-water runner trail
     # ── Advanced Protective Shields & Sizing ──────────────────────────────
+    loss_quarantine_seconds: int = 1200            # Post-loss quarantine per symbol/direction (20 mins)
     enable_early_invalidation_cut: bool = True     # Cut losses early at -0.30R to -0.50R if structure shifts against thesis
     invalidation_cut_min_r: float = -0.30          # Minimum adverse R required before early structural cut
     enable_expectancy_adaptive_sizing: bool = True # Fractional Kelly position sizing based on Strategy Tester Expectancy

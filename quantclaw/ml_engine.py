@@ -158,6 +158,22 @@ class MLEngine:
             + (memory_score * self.weights.get("historical_memory", 8.0))
         ) / (total_weight / 100.0)
 
+        # Macro Trend Alignment Guard: Heavily penalize fighting higher-timeframe structure
+        if trend_score <= 0.33:
+            raw_score -= 25.0
+            logger.warning(f"🛡️ [MACRO COUNTER-TREND] {action.upper()} {sym} penalized (-25.0 pts) for fighting multi-timeframe trend")
+        elif trend_score >= 0.99:
+            raw_score += 8.0
+
+        # Risk-to-Reward Expectancy Filter
+        if signal.sl_points > 0 and signal.tp_points > 0:
+            sig_rr = signal.tp_points / signal.sl_points
+            if sig_rr < 1.8:
+                raw_score -= 20.0
+                logger.warning(f"⚠️ [LOW RR PENALTY] Signal RR {sig_rr:.2f} is under institutional 1.8R floor (-20.0 pts)")
+            elif sig_rr >= 2.5:
+                raw_score += 6.0
+
         # Add confluence bonus
         confluence_bonus = 0.0
         if confluence_count >= 2:

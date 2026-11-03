@@ -62,6 +62,7 @@ class RiskManager:
         self._execution_semaphore: Optional[asyncio.Semaphore] = None  # Lazy-initialized in async context
         self._calendar = MarketCalendar()
         self._last_swap_check: Dict[int, float] = {}  # ticket -> last swap check time
+        self._symbol_loss_cooldowns: Dict[Tuple[str, str], float] = {}  # (symbol, action) -> timestamp
 
     # ── Master Arm & Circuit Breaker ───────────────────────────────────────────
 
@@ -72,6 +73,15 @@ class RiskManager:
         Use is_new_entry_allowed() to check if NEW trades can be opened.
         """
         return bool(getattr(self.config, "armed", False))
+
+    def is_symbol_in_cooldown(self, symbol: str, action: str) -> Tuple[bool, int]:
+        """Check if a symbol and direction are currently quarantined after a loss."""
+        key = (symbol.upper(), action.lower())
+        exp = self._symbol_loss_cooldowns.get(key, 0.0)
+        now_ts = time.time()
+        if now_ts < exp:
+            return True, int(exp - now_ts)
+        return False, 0
 
     def is_new_entry_allowed(self) -> bool:
         """Check if NEW trade entries are allowed.
@@ -525,6 +535,14 @@ class RiskManager:
                 with self._positions_lock:
                     self._consecutive_losses += 1
                     cur_consec = self._consecutive_losses
+                sym_loss = m.get("symbol", "").upper()
+                act_loss = m.get("action", "").lower()
+                if sym_loss and act_loss:
+                    cooldown_secs = int(getattr(self.config, "loss_quarantine_seconds", 1200))
+                    self._symbol_loss_cooldowns[(sym_loss, act_loss)] = time.time() + cooldown_secs
+                    logger.warning(
+                        f"🛑 [LOSS QUARANTINE] {sym_loss} {act_loss.upper()} quarantined for {cooldown_secs//60} mins following loss on #{t}"
+                    )
                 max_consec = int(getattr(self.config, "max_consecutive_losses", 4))
                 if cur_consec >= max_consec:
                     self.trigger_circuit_breaker(

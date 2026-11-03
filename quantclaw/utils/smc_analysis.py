@@ -403,12 +403,28 @@ def evaluate_institutional_ict_setup(
         has_bull_shift = choch["type"] in ("CHOCH_BULL", "BOS_BULL") or (current_price > sweep_low + atr * 0.5)
 
         if in_discount and (valid_fvgs or valid_obs or has_bull_shift) and sweep_low > 0:
-            sl_price = sweep_low - (atr * 0.3)  # Invalidation below sweep low
-            sl_dist = abs(current_price - sl_price)
-            # Target opposite liquidity pool (recent swing high or minimum 2.2R)
-            eligible_highs = [sh["price"] for sh in swings["highs"] if sh["price"] > current_price + sl_dist]
-            target_high = max(eligible_highs) if eligible_highs else (current_price + sl_dist * min_rr)
-            tp_price = max(target_high, current_price + sl_dist * min_rr)
+            # Calibrate minimum institutional SL buffer based on asset price magnitude
+            if current_price > 10000:
+                min_sl = max(1.2 * atr, 200.0)
+            elif current_price > 1000:
+                min_sl = max(1.2 * atr, 3.50)
+            elif current_price > 20:
+                min_sl = max(1.2 * atr, 0.15)
+            else:
+                min_sl = max(1.2 * atr, 0.00120)
+            max_sl = min_sl * 3.5
+
+            raw_sl_dist = abs(current_price - (sweep_low - (atr * 0.35)))
+            sl_dist = min(max_sl, max(min_sl, raw_sl_dist))
+            sl_price = current_price - sl_dist
+
+            # Target closest liquidity pool that offers target_rr >= min_rr (capped at 3.5R to ensure reachable high win rate)
+            eligible_highs = [sh["price"] for sh in swings["highs"] if sh["price"] >= current_price + (sl_dist * min_rr)]
+            if eligible_highs:
+                target_high = min(eligible_highs)
+                tp_price = min(target_high, current_price + (sl_dist * 3.5))
+            else:
+                tp_price = current_price + (sl_dist * min_rr)
             rr = (tp_price - current_price) / max(0.0001, sl_dist)
 
             if rr >= min_rr:
@@ -449,12 +465,26 @@ def evaluate_institutional_ict_setup(
         has_bear_shift = choch["type"] in ("CHOCH_BEAR", "BOS_BEAR") or (current_price < sweep_high - atr * 0.5)
 
         if in_premium and (valid_fvgs or valid_obs or has_bear_shift) and sweep_high > 0:
-            sl_price = sweep_high + (atr * 0.3)  # Invalidation above sweep high
-            sl_dist = abs(sl_price - current_price)
-            # Target opposite liquidity pool (recent swing low or minimum 2.2R)
-            eligible_lows = [sl_["price"] for sl_ in swings["lows"] if sl_["price"] < current_price - sl_dist]
-            target_low = min(eligible_lows) if eligible_lows else (current_price - sl_dist * min_rr)
-            tp_price = min(target_low, current_price - sl_dist * min_rr)
+            if current_price > 10000:
+                min_sl = max(1.2 * atr, 200.0)
+            elif current_price > 1000:
+                min_sl = max(1.2 * atr, 3.50)
+            elif current_price > 20:
+                min_sl = max(1.2 * atr, 0.15)
+            else:
+                min_sl = max(1.2 * atr, 0.00120)
+            max_sl = min_sl * 3.5
+
+            raw_sl_dist = abs((sweep_high + (atr * 0.35)) - current_price)
+            sl_dist = min(max_sl, max(min_sl, raw_sl_dist))
+            sl_price = current_price + sl_dist
+
+            eligible_lows = [sl_["price"] for sl_ in swings["lows"] if sl_["price"] <= current_price - (sl_dist * min_rr)]
+            if eligible_lows:
+                target_low = max(eligible_lows)
+                tp_price = max(target_low, current_price - (sl_dist * 3.5))
+            else:
+                tp_price = current_price - (sl_dist * min_rr)
             rr = (current_price - tp_price) / max(0.0001, sl_dist)
 
             if rr >= min_rr:

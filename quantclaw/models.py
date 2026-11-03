@@ -254,6 +254,18 @@ class TradeDecision(BaseModel):
                 raise ValueError(
                     f"SELL: tp_price ({self.tp_price}) must be below entry_price ({self.entry_price})"
                 )
+
+        # Failsafe sanity guard: Reject absurd/corrupted SL or TP distances
+        sl_dist = abs(self.entry_price - self.sl_price)
+        tp_dist = abs(self.entry_price - self.tp_price)
+        if sl_dist > 0 and (tp_dist / sl_dist) > 6.0:
+            raise ValueError(
+                f"Abnormal TP distance ({tp_dist:.5f}) vs SL distance ({sl_dist:.5f}) - RR {tp_dist/sl_dist:.1f}:1 exceeds safety cap (6.0:1)"
+            )
+        if tp_dist > self.entry_price * 0.25:
+            raise ValueError(
+                f"Abnormal TP distance ({tp_dist:.5f}) exceeds 25% of asset price ({self.entry_price})"
+            )
         return self
 
 
