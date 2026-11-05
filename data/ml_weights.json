@@ -1,11 +1,11 @@
 {
-  "trend_alignment": 12.7664,
-  "smc_confluence": 19.0533,
-  "liquidity_sweep": 12.7427,
-  "momentum_volume": 3.5711,
-  "volatility_regime": 16.3377,
+  "trend_alignment": 12.8032,
+  "smc_confluence": 19.1639,
+  "liquidity_sweep": 12.7802,
+  "momentum_volume": 3.4472,
+  "volatility_regime": 16.4624,
   "spread_efficiency": 15.0,
-  "session_window": 2.9756,
+  "session_window": 2.8723,
   "news_safety": 15.0,
-  "historical_memory": 2.3806
+  "historical_memory": 2.298
 }

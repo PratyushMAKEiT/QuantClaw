@@ -36,6 +36,7 @@ class AccountTracker:
         self._peak_equity: float = 0.0
         self._max_drawdown_pct: float = 0.0
         self._weekly_start_equity: float = 0.0
+        self._today_realized_pnl: float = 0.0
         self._connected_cached: bool = False
         self._last_login: int = 0
         self._account_switched: bool = False
@@ -68,8 +69,24 @@ class AccountTracker:
         
         acc = await asyncio.to_thread(self.mt5.get_account_info)
         connected = bool(acc and acc.login > 0)
+
+        # Query true net realized P&L directly from MT5 closed deals today
+        realized_today = 0.0
+        try:
+            get_pnl_fn = getattr(self.mt5, "get_today_realized_pnl", None)
+            if callable(get_pnl_fn):
+                res = await asyncio.to_thread(get_pnl_fn)
+                if isinstance(res, (int, float)):
+                    realized_today = float(res)
+            elif self.journal and hasattr(self.journal, "get_today_pnl"):
+                res = await asyncio.to_thread(self.journal.get_today_pnl)
+                if isinstance(res, (int, float)):
+                    realized_today = float(res)
+        except Exception:
+            realized_today = 0.0
         
         with self._lock:
+            self._today_realized_pnl = realized_today
             self._connected_cached = connected
 
             if today_str != self._current_day:
@@ -99,7 +116,11 @@ class AccountTracker:
             self._live_account = acc
             self._last_poll_time = time.time()
 
-            if self._start_of_day_equity <= 0.0:
+            # Mathematically anchor SOD equity to midnight: current equity minus all P&L generated today
+            calculated_sod = acc.equity - (realized_today + getattr(acc, "profit", 0.0))
+            if calculated_sod > 0.0:
+                self._start_of_day_equity = calculated_sod
+            elif self._start_of_day_equity <= 0.0:
                 self._start_of_day_equity = acc.equity
 
             if acc.equity > self._peak_equity:
@@ -141,7 +162,9 @@ class AccountTracker:
                 "trade_allowed": False,
             }
 
-        today_pnl = acc.equity - sod if sod > 0 else 0.0
+        # Use exact MT5 closed deals realized net P&L for today_pnl
+        today_pnl = self._today_realized_pnl
+        equity_delta = acc.equity - sod if sod > 0 else 0.0
         today_pnl_pct = (today_pnl / sod * 100.0) if sod > 0 else 0.0
 
         return {

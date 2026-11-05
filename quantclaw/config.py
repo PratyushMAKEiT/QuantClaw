@@ -210,8 +210,8 @@ class AppConfig:
     stepped_trail_zone4_r: float = 2.40            # Zone 4 trigger: Lock SL at +1.40R
     stepped_trail_zone5_r: float = 2.80            # Zone 5 trigger: High-water runner trail
     # ── Advanced Protective Shields & Sizing ──────────────────────────────
-    loss_quarantine_seconds: int = 1200            # Post-loss quarantine per symbol/direction (20 mins)
-    enable_early_invalidation_cut: bool = True     # Cut losses early at -0.30R to -0.50R if structure shifts against thesis
+    loss_quarantine_seconds: int = 1800            # Post-loss quarantine per symbol/direction (20 mins)
+    enable_early_invalidation_cut: bool = False     # Cut losses early at -0.30R to -0.50R if structure shifts against thesis
     invalidation_cut_min_r: float = -0.30          # Minimum adverse R required before early structural cut
     enable_expectancy_adaptive_sizing: bool = True # Fractional Kelly position sizing based on Strategy Tester Expectancy
     enable_weekend_gap_shield: bool = False        # Friday close protection against Sunday opening gaps

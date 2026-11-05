@@ -76,11 +76,13 @@ class RiskManager:
 
     def is_symbol_in_cooldown(self, symbol: str, action: str) -> Tuple[bool, int]:
         """Check if a symbol and direction are currently quarantined after a loss."""
-        key = (symbol.upper(), action.lower())
-        exp = self._symbol_loss_cooldowns.get(key, 0.0)
+        clean_sym = symbol.upper().rstrip(".").strip()
+        act_lower = action.lower()
         now_ts = time.time()
-        if now_ts < exp:
-            return True, int(exp - now_ts)
+        for (s, a), exp in list(self._symbol_loss_cooldowns.items()):
+            if s.upper().rstrip(".").strip() == clean_sym and a.lower() == act_lower:
+                if now_ts < exp:
+                    return True, int(exp - now_ts)
         return False, 0
 
     def is_new_entry_allowed(self) -> bool:

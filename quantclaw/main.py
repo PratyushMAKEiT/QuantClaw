@@ -226,6 +226,8 @@ class QuantClawMT5App:
             # 8b. Autonomous Strategy Tester & Live Thinking Brain
             self.strategy_tester = StrategyTester(config=self.config, mt5_client=self.mt5, market_engine=self.market)
             self.strategy.strategy_tester = self.strategy_tester
+            self.strategy.risk_manager = self.risk
+            self.ml.risk_manager = self.risk
             self.thinking = MarketThinkingEngine(config=self.config, market_engine=self.market, risk_manager=self.risk, mt5_client=self.mt5)
 
             # 9. FastAPI Telemetry Server

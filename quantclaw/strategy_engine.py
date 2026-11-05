@@ -126,6 +126,13 @@ class StrategyEngine:
             except Exception as e:
                 logger.debug(f"Volume regime adaptability error: {e}")
 
+        # Quarantine filter: Drop signals on symbols currently under post-loss quarantine
+        if hasattr(self, "risk_manager") and self.risk_manager:
+            signals = [
+                s for s in signals 
+                if not self.risk_manager.is_symbol_in_cooldown(s.symbol, s.action)[0]
+            ]
+
         # Dispatch signals through cooldown filter
         for s in signals:
             ckey = f"{s.symbol}:{s.strategy}"
@@ -256,11 +263,13 @@ class StrategyEngine:
             swept_in_last = (last_low < swing_low and last_close > swing_low)
             swept_in_prev = (prev_low < swing_low and (prev_close > swing_low or last_close > swing_low))
             if swept_in_last or swept_in_prev:
-                # Displacement check: Bullish rejection wick or strong green body
+                # Displacement check: MUST close green for BUY with strong body or rejection
                 rng = max(1e-5, last_high - last_low)
                 body = abs(last_close - last_open)
                 lower_wick = min(last_open, last_close) - last_low
-                is_bull_displacement = (last_close > last_open and body >= rng * 0.40) or (lower_wick >= rng * 0.35) or (last_close > prev_high)
+                is_bull_displacement = (last_close > last_open) and (
+                    (body >= rng * 0.40) or (lower_wick >= rng * 0.40) or (last_close > prev_high)
+                )
                 if is_bull_displacement:
                     sweep_detected = True
                     sweep_level = min(last_low, prev_low)
@@ -269,11 +278,13 @@ class StrategyEngine:
             swept_in_last = (last_high > swing_high and last_close < swing_high)
             swept_in_prev = (prev_high > swing_high and (prev_close < swing_high or last_close < swing_high))
             if swept_in_last or swept_in_prev:
-                # Displacement check: Bearish rejection wick or strong red body
+                # Displacement check: MUST close red for SELL with strong body or rejection
                 rng = max(1e-5, last_high - last_low)
                 body = abs(last_close - last_open)
                 upper_wick = last_high - max(last_open, last_close)
-                is_bear_displacement = (last_close < last_open and body >= rng * 0.40) or (upper_wick >= rng * 0.35) or (last_close < prev_low)
+                is_bear_displacement = (last_close < last_open) and (
+                    (body >= rng * 0.40) or (upper_wick >= rng * 0.40) or (last_close < prev_low)
+                )
                 if is_bear_displacement:
                     sweep_detected = True
                     sweep_level = max(last_high, prev_high)
@@ -281,10 +292,10 @@ class StrategyEngine:
         if not sweep_detected:
             # Secondary check: built-in detect_sweeps
             swp = detect_sweeps(candles, period=lookback)
-            if action == "buy" and swp.get("swept_ssl") and last_close > last_open:
+            if action == "buy" and swp.get("swept_ssl") and last_close > last_open and (last_close - last_open) >= (0.25 * atr):
                 sweep_detected = True
                 sweep_level = float(swp.get("ssl_price", last_low))
-            elif action == "sell" and swp.get("swept_bsl") and last_close < last_open:
+            elif action == "sell" and swp.get("swept_bsl") and last_close < last_open and (last_open - last_close) >= (0.25 * atr):
                 sweep_detected = True
                 sweep_level = float(swp.get("bsl_price", last_high))
 

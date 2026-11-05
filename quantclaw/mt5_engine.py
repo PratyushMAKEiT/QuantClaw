@@ -1125,6 +1125,30 @@ class MT5Client:
                 logger.debug(f"Error fetching history deals for #{ticket}: {e}")
                 return {"profit": 0.0, "swap": 0.0, "commission": 0.0, "close_price": 0.0}
 
+    def get_today_realized_pnl(self) -> float:
+        """Query MT5 closed deals since 00:00 UTC today to calculate true net realized profit."""
+        if not MT5_AVAILABLE:
+            return 0.0
+        with self._lock:
+            try:
+                import datetime
+                now = datetime.datetime.now(datetime.timezone.utc)
+                midnight = datetime.datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=datetime.timezone.utc)
+                deals = mt5.history_deals_get(midnight, now)
+                if deals:
+                    net = sum(
+                        float(getattr(d, "profit", 0.0))
+                        + float(getattr(d, "commission", 0.0))
+                        + float(getattr(d, "swap", 0.0))
+                        + float(getattr(d, "fee", 0.0))
+                        for d in deals if getattr(d, "entry", 0) in (1, 2)
+                    )
+                    return float(round(net, 2))
+                return 0.0
+            except Exception as e:
+                logger.debug(f"Error fetching today realized PnL from MT5: {e}")
+                return 0.0
+
     # ── Positions & Orders Queries ─────────────────────────────────────────────
 
     def get_positions(self, symbol: str = "") -> List[Dict[str, Any]]:
